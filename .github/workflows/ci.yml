@@ -1,0 +1,15 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validar sintaxis de kong.yml
+        run: |
+          docker run --rm -e KONG_DATABASE=off -v $(pwd)/kong/kong.yml:/kong.yml kong:3.6 kong config parse /kong.yml
