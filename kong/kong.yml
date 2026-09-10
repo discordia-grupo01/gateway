@@ -3,36 +3,35 @@
 _format_version: "3.0"
 
 services:
-  # --- Identity (Usuarios + Perfil) ---
-  - name: identity-service
+  - name: identity-public
     url: http://identity:8080
     routes:
-      - name: identity-auth
-        paths: ["/v1/auth"]
-        strip_path: false
-      - name: identity-users
+      - name: identity-register
         paths: ["/v1/users"]
+        methods: ["POST"]
         strip_path: false
-    plugins:
-      # Rate limit especifico en login y recupero, como pide el RNF de seguridad.
-      # Kong no permite un plugin "solo para una sub-ruta" a nivel service, asi que
-      # el rate-limit fino de /v1/auth/login se agrega mejor a nivel de ruta
-      # (ver route "identity-auth-login" mas abajo) en vez de a todo /v1/auth.
-      []
+      - name: identity-login
+        paths: ["/v1/login"]
+        methods: ["POST"]
+        strip_path: false
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 10
+              policy: local
 
-  - name: identity-auth-login
+  - name: identity-auth
     url: http://identity:8080
     routes:
-      - name: identity-login-route
-        paths: ["/v1/auth/login", "/v1/auth/password/forgot"]
+      - name: identity-logout
+        paths: ["/v1/logout"]
+        methods: ["POST"]
         strip_path: false
     plugins:
-      - name: rate-limiting
+      - name: jwt
         config:
-          minute: 10
-          policy: local
+          claims_to_verify: ["exp"]
 
-  # --- Servers (Servidores, Canales, Roles y Permisos, Moderacion) ---
   - name: servers-service
     url: http://servers:8080
     routes:
@@ -45,25 +44,13 @@ services:
           - /v1/roles
           - /v1/members
         strip_path: false
-
-# --- Plugins globales (aplican a todos los servicios) ---
-plugins:
-  - name: jwt
-    config:
-      claims_to_verify: ["exp"]
-    # NOTA: las rutas publicas (register, login, recupero, oauth, join por invite)
-    # tienen que quedar EXCLUIDAS de este plugin global. Kong no tiene "exclude"
-    # nativo por ruta a nivel global -- la forma correcta es NO poner el plugin JWT
-    # global, sino agregarlo service por service en los servicios/rutas que
-    # requieren auth, dejando afuera las rutas publicas. Ver seccion de mas abajo.
-
-# --- Consumer de ejemplo, para validar JWT emitidos por Identity ---
-# Kong valida el JWT contra un "consumer" que tiene la misma clave con la que
-# Identity firma el token. Hay que cargar esto con el secret real (no commitear
-# el secret real en este archivo -- usar variables de entorno en el deploy real).
+    plugins:
+      - name: jwt
+        config:
+          claims_to_verify: ["exp"]
 consumers:
   - username: discordia-users
     jwt_secrets:
       - key: discordia-issuer
         algorithm: HS256
-        secret: ${JWT_SECRET}
+        secret: dev-secret-change-me
