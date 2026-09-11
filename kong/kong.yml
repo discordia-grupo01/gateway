@@ -19,6 +19,14 @@ services:
             config:
               minute: 10
               policy: local
+      - name: identity-password-recovery
+        paths: ["/v1/password-recovery"]
+        methods: ["POST"]
+        strip_path: false
+      - name: identity-password-reset
+        paths: ["/v1/password-reset"]
+        methods: ["POST"]
+        strip_path: false
 
   - name: identity-auth
     url: http://identity:8080
