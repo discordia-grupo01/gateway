@@ -1,0 +1,64 @@
+# "{vault://env/...}" para esto (probado), asi que este archivo se renderiza
+# con `envsubst` ANTES de que Kong arranque -- ver infrastructure/deploy/.
+_format_version: "3.0"
+
+services:
+  - name: identity-public
+    url: http://identity:8080
+    routes:
+      - name: identity-register
+        paths: ["/v1/users"]
+        methods: ["POST"]
+        strip_path: false
+      - name: identity-login
+        paths: ["/v1/login"]
+        methods: ["POST"]
+        strip_path: false
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 10
+              policy: local
+      - name: identity-password-recovery
+        paths: ["/v1/password-recovery"]
+        methods: ["POST"]
+        strip_path: false
+      - name: identity-password-reset
+        paths: ["/v1/password-reset"]
+        methods: ["POST"]
+        strip_path: false
+
+  - name: identity-auth
+    url: http://identity:8080
+    routes:
+      - name: identity-logout
+        paths: ["/v1/logout"]
+        methods: ["POST"]
+        strip_path: false
+    plugins:
+      - name: jwt
+        config:
+          claims_to_verify: ["exp"]
+
+  - name: servers-service
+    url: http://servers:8080
+    routes:
+      - name: servers-routes
+        paths:
+          - /v1/servers
+          - /v1/channels
+          - /v1/categories
+          - /v1/invites
+          - /v1/roles
+          - /v1/members
+        strip_path: false
+    plugins:
+      - name: jwt
+        config:
+          claims_to_verify: ["exp"]
+consumers:
+  - username: discordia-users
+    jwt_secrets:
+      - key: discordia-issuer
+        algorithm: HS256
+        secret: '${JWT_SECRET}'
