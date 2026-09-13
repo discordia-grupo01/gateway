@@ -35,6 +35,14 @@ services:
         paths: ["/v1/logout"]
         methods: ["POST"]
         strip_path: false
+      - name: identity-profile-me
+        paths: ["/v1/me"]
+        methods: ["GET", "PATCH", "PUT", "DELETE"]
+        strip_path: false
+      - name: identity-profile-public
+        paths: ["/v1/users"]
+        methods: ["GET"]
+        strip_path: false
     plugins:
       - name: jwt
         config:
