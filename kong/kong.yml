@@ -27,6 +27,10 @@ services:
         paths: ["/v1/password-reset"]
         methods: ["POST"]
         strip_path: false
+      - name: identity-profile-image
+        paths: ["/uploads/profile-images"]
+        methods: ["GET"]
+        strip_path: false
 
   - name: identity-auth
     url: http://identity:8080
