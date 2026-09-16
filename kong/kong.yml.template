@@ -31,6 +31,15 @@ services:
         paths: ["/uploads/profile-images"]
         methods: ["GET"]
         strip_path: false
+      - name: identity-refresh
+        paths: ["/v1/refresh"]
+        methods: ["POST"]
+        strip_path: false
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 10
+              policy: local
 
   - name: identity-auth
     url: http://identity:8080
