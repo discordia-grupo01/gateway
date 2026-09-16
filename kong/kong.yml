@@ -31,14 +31,23 @@ services:
         paths: ["/uploads/profile-images"]
         methods: ["GET"]
         strip_path: false
-
-  - name: identity-auth
-    url: http://identity:8080
-    routes:
+      - name: identity-refresh
+        paths: ["/v1/refresh"]
+        methods: ["POST"]
+        strip_path: false
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 10
+              policy: local
       - name: identity-logout
         paths: ["/v1/logout"]
         methods: ["POST"]
         strip_path: false
+
+  - name: identity-auth
+    url: http://identity:8080
+    routes:
       - name: identity-profile-me
         paths: ["/v1/me"]
         methods: ["GET", "PATCH", "PUT", "DELETE"]
@@ -73,4 +82,4 @@ consumers:
     jwt_secrets:
       - key: discordia-issuer
         algorithm: HS256
-        secret: dev-secret-change-me
+        secret: '${JWT_SECRET}'
