@@ -19,6 +19,15 @@ services:
             config:
               minute: 10
               policy: local
+      - name: identity-oauth-google
+        paths: ["/v1/oauth/google"]
+        methods: ["POST"]
+        strip_path: false
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 10
+              policy: local
       - name: identity-password-recovery
         paths: ["/v1/password-recovery"]
         methods: ["POST"]
