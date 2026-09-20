@@ -4,7 +4,7 @@ _format_version: "3.0"
 
 services:
   - name: identity-public
-    url: http://identity:8080
+    url: ${IDENTITY_UPSTREAM_URL}
     routes:
       - name: identity-register
         paths: ["/v1/users"]
@@ -51,7 +51,7 @@ services:
               policy: local
 
   - name: identity-auth
-    url: http://identity:8080
+    url: ${IDENTITY_UPSTREAM_URL}
     routes:
       - name: identity-logout
         paths: ["/v1/logout"]
@@ -71,7 +71,7 @@ services:
           claims_to_verify: ["exp"]
 
   - name: servers-service
-    url: http://servers:8080
+    url: ${SERVERS_UPSTREAM_URL}
     routes:
       - name: servers-routes
         paths:
