@@ -19,6 +19,15 @@ services:
             config:
               minute: 10
               policy: local
+      - name: identity-pin-login
+        paths: ["/v1/pin/login"]
+        methods: ["POST"]
+        strip_path: false
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 10
+              policy: local
       - name: identity-oauth-google
         paths: ["/v1/oauth/google"]
         methods: ["POST"]
@@ -57,6 +66,10 @@ services:
   - name: identity-auth
     url: ${IDENTITY_UPSTREAM_URL}
     routes:
+      - name: identity-pin-configure
+        paths: ["/v1/pin"]
+        methods: ["POST"]
+        strip_path: false
       - name: identity-logout
         paths: ["/v1/logout"]
         methods: ["POST"]
