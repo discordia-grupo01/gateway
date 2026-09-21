@@ -28,6 +28,10 @@ services:
             config:
               minute: 10
               policy: local
+      - name: identity-oauth-mobile-callback
+        paths: ["/oauth/mobile-callback"]
+        methods: ["GET"]
+        strip_path: false
       - name: identity-password-recovery
         paths: ["/v1/password-recovery"]
         methods: ["POST"]
