@@ -1,10 +1,10 @@
-# Config declarativa de Kong (modo DB-less: sin Postgres propia para el gateway).
-# Documentacion: https://konghq.com/products/kong-gateway
+# "{vault://env/...}" para esto (probado), asi que este archivo se renderiza
+# con `envsubst` ANTES de que Kong arranque -- ver infrastructure/deploy/.
 _format_version: "3.0"
 
 services:
   - name: identity-public
-    url: http://identity:8080
+    url: ${IDENTITY_UPSTREAM_URL}
     routes:
       - name: identity-register
         paths: ["/v1/users"]
@@ -62,16 +62,16 @@ services:
             config:
               minute: 10
               policy: local
-      - name: identity-logout
-        paths: ["/v1/logout"]
-        methods: ["POST"]
-        strip_path: false
 
   - name: identity-auth
-    url: http://identity:8080
+    url: ${IDENTITY_UPSTREAM_URL}
     routes:
       - name: identity-pin-configure
         paths: ["/v1/pin"]
+        methods: ["POST"]
+        strip_path: false
+      - name: identity-logout
+        paths: ["/v1/logout"]
         methods: ["POST"]
         strip_path: false
       - name: identity-profile-me
@@ -88,7 +88,7 @@ services:
           claims_to_verify: ["exp"]
 
   - name: servers-service
-    url: http://servers:8080
+    url: ${SERVERS_UPSTREAM_URL}
     routes:
       - name: servers-routes
         paths:

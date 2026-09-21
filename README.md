@@ -34,3 +34,37 @@ quede atrapada por error.
 ## Rate limiting
 Ya configurado en login y recupero de contraseña (10 req/min por IP), como
 pide el RNF. Ajustar el numero segun lo que decidan en el ADR de seguridad.
+
+## Deploy a producción
+
+`docker-compose.yml` (raíz) es solo para probar `kong/kong.yml` en local —
+no lleva Caddy ni el paso de `envsubst`. El deploy real usa
+`docker-compose.prod.yml`, que además:
+- Renderiza `kong/kong.yml.template` con `envsubst` (`kong-config`), en vez
+  de usar el `kong/kong.yml` ya commiteado.
+- Suma `caddy` para TLS automático delante de Kong.
+
+`identity` y `servers` corren en sus propias VMs (no en este compose) —
+`IDENTITY_UPSTREAM_URL`/`SERVERS_UPSTREAM_URL` en `.env.prod` apuntan a sus
+IPs de Tailscale. Ver `.env.prod.example` para la lista completa.
+
+**Deploy automático**: un push a `main` (después de que pase `validate`)
+dispara el job `deploy` en `.github/workflows/ci.yml`, que por SSH hace
+`git pull` + `docker compose -f docker-compose.prod.yml --env-file .env.prod
+up -d --force-recreate kong-config gateway caddy` en la VM de Oracle.
+Necesita estos secrets en **Settings → Secrets and variables → Actions**:
+
+| Secret | Valor |
+|---|---|
+| `ORACLE_HOST` | IP pública de la VM |
+| `ORACLE_USER` | usuario SSH (ej. `ubuntu`) |
+| `ORACLE_SSH_KEY` | clave privada SSH de despliegue |
+
+**Primera vez en la VM** (manual, una sola vez):
+```bash
+git clone -b main https://github.com/discordia-grupo01/gateway.git
+cd gateway
+cp .env.prod.example .env.prod
+nano .env.prod   # completar JWT_SECRET, DOMAIN, IDENTITY/SERVERS_UPSTREAM_URL
+docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
+```
