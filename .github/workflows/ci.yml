@@ -28,4 +28,4 @@ jobs:
           script: |
             cd ~/gateway
             git pull
-            docker compose -f docker-compose.yml --env-file .env.prod up -d --force-recreate kong-config gateway caddy
+            docker compose up -d --force-recreate kong-config gateway caddy
