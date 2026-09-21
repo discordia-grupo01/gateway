@@ -1,14 +1,49 @@
+name: discordia-gateway
+
 services:
-  kong:
+  kong-config:
+    image: alpine:3.19
+    environment:
+      JWT_SECRET: ${JWT_SECRET}
+      IDENTITY_UPSTREAM_URL: ${IDENTITY_UPSTREAM_URL}
+      SERVERS_UPSTREAM_URL: ${SERVERS_UPSTREAM_URL}
+    volumes:
+      - ./kong/kong.yml.template:/template/kong.yml.template:ro
+      - kong_rendered:/rendered
+    command: sh -c "apk add --no-cache gettext >/dev/null && envsubst < /template/kong.yml.template > /rendered/kong.yml"
+
+  gateway:
     image: kong:3.6
+    restart: unless-stopped
     environment:
       KONG_DATABASE: "off"
       KONG_DECLARATIVE_CONFIG: /kong/kong.yml
       KONG_PROXY_LISTEN: "0.0.0.0:8000"
-      KONG_ADMIN_LISTEN: "0.0.0.0:8001"
-      JWT_SECRET: ${JWT_SECRET}
+      KONG_ADMIN_LISTEN: "127.0.0.1:8001"
     ports:
-      - "${GATEWAY_PORT:-8000}:8000"              # entrada real de la API
-      - "127.0.0.1:${GATEWAY_ADMIN_PORT:-8001}:8001" 
+      - "${GATEWAY_BIND_IP:-127.0.0.1}:8000:8000"
     volumes:
-      - ./kong/kong.yml:/kong/kong.yml:ro
+      - kong_rendered:/kong
+    depends_on:
+      kong-config:
+        condition: service_completed_successfully
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - gateway
+
+volumes:
+  kong_rendered:
+  caddy_data:
+  caddy_config:

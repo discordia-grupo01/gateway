@@ -13,3 +13,19 @@ jobs:
       - name: Validar sintaxis de kong.yml
         run: |
           docker run --rm -e KONG_DATABASE=off -v $(pwd)/kong/kong.yml:/kong.yml kong:3.6 kong config parse /kong.yml
+
+  deploy:
+    needs: validate
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy a Oracle por SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.ORACLE_HOST }}
+          username: ${{ secrets.ORACLE_USER }}
+          key: ${{ secrets.ORACLE_SSH_KEY }}
+          script: |
+            cd ~/gateway
+            git pull
+            docker compose -f docker-compose.yml --env-file .env.prod up -d --force-recreate kong-config gateway caddy
