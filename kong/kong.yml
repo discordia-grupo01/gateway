@@ -10,6 +10,14 @@ services:
         paths: ["/v1/users"]
         methods: ["POST"]
         strip_path: false
+      - name: identity-email-confirmation
+        paths: ["/v1/email-confirmation"]
+        methods: ["POST"]
+        strip_path: false
+      - name: identity-email-confirmation-confirm
+        paths: ["/v1/email-confirmation/confirm"]
+        methods: ["POST"]
+        strip_path: false
       - name: identity-login
         paths: ["/v1/login"]
         methods: ["POST"]
