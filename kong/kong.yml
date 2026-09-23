@@ -87,6 +87,20 @@ services:
         config:
           claims_to_verify: ["exp"]
 
+  - name: servers-public
+    url: http://servers:8080
+    routes:
+      - name: servers-icon
+        paths:
+          - "~/v1/servers/[^/]+/icon$"
+        methods: ["GET"]
+        strip_path: false
+      - name: servers-banner
+        paths:
+          - "~/v1/servers/[^/]+/banner$"
+        methods: ["GET"]
+        strip_path: false
+
   - name: servers-service
     url: http://servers:8080
     routes:
