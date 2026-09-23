@@ -19,6 +19,14 @@ services:
             config:
               minute: 10
               policy: local
+      - name: identity-email-confirmation
+        paths: ["/v1/email-confirmation"]
+        methods: ["POST"]
+        strip_path: false
+      - name: identity-email-confirmation-confirm
+        paths: ["/v1/email-confirmation/confirm"]
+        methods: ["POST"]
+        strip_path: false
       - name: identity-pin-login
         paths: ["/v1/pin/login"]
         methods: ["POST"]
