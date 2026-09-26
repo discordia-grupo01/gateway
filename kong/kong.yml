@@ -90,6 +90,26 @@ services:
         paths: ["/v1/users"]
         methods: ["GET"]
         strip_path: false
+      - name: identity-two-factor-status
+        paths: ["/v1/me/2fa"]
+        methods: ["GET"]
+        strip_path: false
+      - name: identity-two-factor-setup
+        paths: ["/v1/me/2fa/setup"]
+        methods: ["POST"]
+        strip_path: false
+      - name: identity-two-factor-activate
+        paths: ["/v1/me/2fa/activate"]
+        methods: ["POST"]
+        strip_path: false
+      - name: identity-two-factor-disable
+        paths: ["/v1/me/2fa/disable"]
+        methods: ["POST"]
+        strip_path: false
+      - name: identity-two-factor-recovery-codes
+        paths: ["/v1/me/2fa/recovery-codes"]
+        methods: ["POST"]
+        strip_path: false
     plugins:
       - name: jwt
         config:
