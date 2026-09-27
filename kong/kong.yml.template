@@ -110,6 +110,10 @@ services:
         paths: ["/v1/me/2fa/recovery-codes"]
         methods: ["POST"]
         strip_path: false
+      - name: identity-set-password
+        paths: ["/v1/me/password"]
+        methods: ["POST"]
+        strip_path: false
     plugins:
       - name: jwt
         config:
