@@ -17,7 +17,13 @@ services:
         plugins:
           - name: rate-limiting
             config:
-              minute: 10
+              # identify-service ya bloquea fuerza bruta por (email, ip)
+              # (AuthService.Login / WithLoginAttempts); esto solo protege
+              # contra volumen/DoS por IP, asi que puede ser mas alto sin
+              # dejar de proteger nada -- 10/min bloqueaba a cualquier grupo
+              # de usuarios legitimos compartiendo una IP. Ver
+              # infrastructure/load-test/README.md.
+              minute: 60
               policy: local
       - name: identity-email-confirmation
         paths: ["/v1/email-confirmation"]
