@@ -32,8 +32,18 @@ plugin JWT a nivel de un service completo, revisen que ninguna ruta publica
 quede atrapada por error.
 
 ## Rate limiting
-Ya configurado en login y recupero de contraseña (10 req/min por IP), como
-pide el RNF. Ajustar el numero segun lo que decidan en el ADR de seguridad.
+Configurado por IP en: `/v1/login` (60 req/min -- ver mas abajo por que no es
+10 como en el resto), `/v1/pin/login`, `/v1/oauth/google` y `/v1/refresh`
+(10 req/min cada uno). `/v1/password-recovery` no tiene rate-limiting a nivel
+gateway; identify-service ya limita ese endpoint por email a nivel de
+aplicacion (ver su README, seccion de recuperacion de contraseña).
+
+`/v1/login` se subio de 10 a 60 req/min porque dejo de ser la unica defensa
+contra fuerza bruta: identify-service ahora bloquea intentos fallidos por
+`(email, ip)` (ver su README) -- a Kong solo le queda la proteccion gruesa
+contra volumen por IP, para la que 10/min bloqueaba de mas a cualquier grupo
+de usuarios legitimos compartiendo una IP (encontrado con una prueba de carga
+con k6, ver `infrastructure/load-test/README.md`).
 
 ## Deploy a producción
 
