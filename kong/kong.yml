@@ -149,6 +149,22 @@ services:
       - name: jwt
         config:
           claims_to_verify: ["exp"]
+
+  - name: messaging-service
+    url: http://messaging:4000
+    routes:
+      - name: messaging-routes
+        paths:
+          - "~/v1/channels/[^/]+/messages$"
+        methods: ["GET"]
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify: ["exp"]
+      - name: messaging-socket
+        paths: ["/socket"]
+        strip_path: false
 consumers:
   - username: discordia-users
     jwt_secrets:
