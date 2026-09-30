@@ -54,9 +54,10 @@ no lleva Caddy ni el paso de `envsubst`. El deploy real usa
   de usar el `kong/kong.yml` ya commiteado.
 - Suma `caddy` para TLS automático delante de Kong.
 
-`identity` y `servers` corren en sus propias VMs (no en este compose) —
-`IDENTITY_UPSTREAM_URL`/`SERVERS_UPSTREAM_URL` en `.env.prod` apuntan a sus
-IPs de Tailscale. Ver `.env.prod.example` para la lista completa.
+`identity`, `servers` y `messaging` corren en sus propias VMs (no en este
+compose) — `IDENTITY_UPSTREAM_URL`/`SERVERS_UPSTREAM_URL`/
+`MESSAGING_UPSTREAM_URL` en `.env` apuntan a sus IPs de Tailscale. Ver
+`.env.example` para la lista completa.
 
 **Deploy automático**: un push a `main` (después de que pase `validate`)
 dispara el job `deploy` en `.github/workflows/ci.yml`, que por SSH hace
@@ -74,7 +75,8 @@ Necesita estos secrets en **Settings → Secrets and variables → Actions**:
 ```bash
 git clone -b main https://github.com/discordia-grupo01/gateway.git
 cd gateway
-cp .env.prod.example .env.prod
-nano .env.prod   # completar JWT_SECRET, DOMAIN, IDENTITY/SERVERS_UPSTREAM_URL
-docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
+
+cp .env.example .env
+nano .env   # completar JWT_SECRET, DOMAIN, IDENTITY/SERVERS/MESSAGING_UPSTREAM_URL
+docker compose up -d
 ```
