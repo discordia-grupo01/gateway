@@ -150,6 +150,18 @@ services:
         config:
           claims_to_verify: ["exp"]
 
+  - name: voice-signaling
+    url: http://signaling:4000
+    routes:
+      - name: voice-token
+        paths: ["/api/voice/token"]
+        methods: ["POST"]
+        strip_path: false
+    plugins:
+      - name: jwt
+        config:
+          claims_to_verify: ["exp"]
+
   - name: messaging-service
     url: http://messaging:4000
     routes:
