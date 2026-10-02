@@ -47,12 +47,10 @@ con k6, ver `infrastructure/load-test/README.md`).
 
 ## Deploy a producción
 
-`docker-compose.yml` (raíz) es solo para probar `kong/kong.yml` en local —
-no lleva Caddy ni el paso de `envsubst`. El deploy real usa
-`docker-compose.prod.yml`, que además:
-- Renderiza `kong/kong.yml.template` con `envsubst` (`kong-config`), en vez
-  de usar el `kong/kong.yml` ya commiteado.
-- Suma `caddy` para TLS automático delante de Kong.
+`docker-compose.yml` renderiza `kong/kong.yml.template` con `envsubst`
+(`kong-config`, en vez de usar el `kong/kong.yml` ya commiteado -- ese
+queda solo para el chequeo de sintaxis del CI) y suma `caddy` para TLS
+automático delante de Kong.
 
 `identity`, `servers` y `messaging` corren en sus propias VMs (no en este
 compose) — `IDENTITY_UPSTREAM_URL`/`SERVERS_UPSTREAM_URL`/
@@ -61,8 +59,8 @@ compose) — `IDENTITY_UPSTREAM_URL`/`SERVERS_UPSTREAM_URL`/
 
 **Deploy automático**: un push a `main` (después de que pase `validate`)
 dispara el job `deploy` en `.github/workflows/ci.yml`, que por SSH hace
-`git pull` + `docker compose -f docker-compose.prod.yml --env-file .env.prod
-up -d --force-recreate kong-config gateway caddy` en la VM de Oracle.
+`git pull` + `docker compose up -d --force-recreate kong-config gateway
+caddy` en la VM de Oracle (usa el `.env` que ya está en la VM, no lo toca).
 Necesita estos secrets en **Settings → Secrets and variables → Actions**:
 
 | Secret | Valor |
