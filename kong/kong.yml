@@ -165,7 +165,7 @@ services:
       - name: messaging-message
         paths:
           - "~/v1/channels/[^/]+/messages/[^/]+$"
-        methods: ["PATCH"]
+        methods: ["PATCH", "DELETE"]
         strip_path: false
         plugins:
           - name: jwt
