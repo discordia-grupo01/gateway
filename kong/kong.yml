@@ -157,6 +157,10 @@ services:
         paths: ["/api/voice/token"]
         methods: ["POST"]
         strip_path: false
+      - name: voice-session-leave
+        paths: ["/api/voice/session"]
+        methods: ["DELETE"]
+        strip_path: false
     plugins:
       - name: jwt
         config:
