@@ -8,6 +8,7 @@ services:
       IDENTITY_UPSTREAM_URL: ${IDENTITY_UPSTREAM_URL}
       SERVERS_UPSTREAM_URL: ${SERVERS_UPSTREAM_URL}
       MESSAGING_UPSTREAM_URL: ${MESSAGING_UPSTREAM_URL}
+      VOICE_UPSTREAM_URL: ${VOICE_UPSTREAM_URL}
     volumes:
       - ./kong/kong.yml.template:/template/kong.yml.template:ro
       - kong_rendered:/rendered
