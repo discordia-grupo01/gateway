@@ -223,6 +223,24 @@ services:
           - name: jwt
             config:
               claims_to_verify: ["exp"]
+      - name: messaging-mentions
+        paths:
+          - "~/v1/mentions$"
+        methods: ["GET"]
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify: ["exp"]
+      - name: messaging-channel-mentions-read
+        paths:
+          - "~/v1/channels/[^/]+/mentions/read$"
+        methods: ["POST"]
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify: ["exp"]
       - name: messaging-socket-tickets
         paths: ["/v1/socket-tickets"]
         methods: ["POST"]
