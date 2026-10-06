@@ -187,6 +187,24 @@ services:
           - name: jwt
             config:
               claims_to_verify: ["exp"]
+      - name: messaging-conversations
+        paths:
+          - "~/v1/conversations$"
+        methods: ["GET"]
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify: ["exp"]
+      - name: messaging-conversation-read
+        paths:
+          - "~/v1/conversations/[^/]+/read$"
+        methods: ["POST"]
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify: ["exp"]
       - name: messaging-socket-tickets
         paths: ["/v1/socket-tickets"]
         methods: ["POST"]
