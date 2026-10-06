@@ -205,6 +205,24 @@ services:
           - name: jwt
             config:
               claims_to_verify: ["exp"]
+      - name: messaging-blocks
+        paths:
+          - "~/v1/blocks$"
+        methods: ["GET", "POST"]
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify: ["exp"]
+      - name: messaging-block
+        paths:
+          - "~/v1/blocks/[^/]+$"
+        methods: ["DELETE"]
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify: ["exp"]
       - name: messaging-socket-tickets
         paths: ["/v1/socket-tickets"]
         methods: ["POST"]
