@@ -142,6 +142,12 @@ services:
   - name: servers-service
     url: ${SERVERS_UPSTREAM_URL}
     routes:
+      - name: servers-mutes
+        paths:
+          - "~/v1/servers/[^/]+/mutes$"
+          - "~/v1/servers/[^/]+/mutes/[^/]+$"
+        methods: ["POST", "DELETE"]
+        strip_path: false
       - name: servers-routes
         paths:
           - /v1/servers
