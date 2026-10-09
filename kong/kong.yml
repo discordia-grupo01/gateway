@@ -136,6 +136,12 @@ services:
   - name: servers-service
     url: http://servers:8080
     routes:
+      - name: servers-mutes
+        paths:
+          - "~/v1/servers/[^/]+/mutes$"
+          - "~/v1/servers/[^/]+/mutes/[^/]+$"
+        methods: ["POST", "DELETE"]
+        strip_path: false
       - name: servers-routes
         paths:
           - /v1/servers
@@ -150,6 +156,22 @@ services:
         config:
           claims_to_verify: ["exp"]
 
+  - name: voice-signaling
+    url: http://signaling:4000
+    routes:
+      - name: voice-token
+        paths: ["/api/voice/token"]
+        methods: ["POST"]
+        strip_path: false
+      - name: voice-session-leave
+        paths: ["/api/voice/session"]
+        methods: ["DELETE"]
+        strip_path: false
+    plugins:
+      - name: jwt
+        config:
+          claims_to_verify: ["exp"]
+
   - name: messaging-service
     url: http://messaging:4000
     routes:
@@ -157,6 +179,69 @@ services:
         paths:
           - "~/v1/channels/[^/]+/messages$"
         methods: ["GET"]
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify: ["exp"]
+      - name: messaging-message
+        paths:
+          - "~/v1/channels/[^/]+/messages/[^/]+$"
+        methods: ["PATCH", "DELETE"]
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify: ["exp"]
+      - name: messaging-conversations
+        paths:
+          - "~/v1/conversations$"
+        methods: ["GET"]
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify: ["exp"]
+      - name: messaging-conversation-read
+        paths:
+          - "~/v1/conversations/[^/]+/read$"
+        methods: ["POST"]
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify: ["exp"]
+      - name: messaging-blocks
+        paths:
+          - "~/v1/blocks$"
+        methods: ["GET", "POST"]
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify: ["exp"]
+      - name: messaging-block
+        paths:
+          - "~/v1/blocks/[^/]+$"
+        methods: ["DELETE"]
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify: ["exp"]
+      - name: messaging-mentions
+        paths:
+          - "~/v1/mentions$"
+        methods: ["GET"]
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify: ["exp"]
+      - name: messaging-channel-mentions-read
+        paths:
+          - "~/v1/channels/[^/]+/mentions/read$"
+        methods: ["POST"]
         strip_path: false
         plugins:
           - name: jwt
