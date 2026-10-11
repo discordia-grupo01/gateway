@@ -173,6 +173,14 @@ services:
         paths: ["/api/voice/session"]
         methods: ["DELETE"]
         strip_path: false
+      - name: voice-participants
+        paths: ["/api/voice/participants"]
+        methods: ["GET"]
+        strip_path: false
+      - name: voice-socket
+        paths: ["/voice/socket"]
+        methods: ["GET"]
+        strip_path: false
     plugins:
       - name: jwt
         config:
