@@ -156,6 +156,18 @@ services:
         config:
           claims_to_verify: ["exp"]
 
+  - name: admin-service
+    url: http://admin:8080
+    routes:
+      - name: admin-routes
+        paths: ["/v1/admin"]
+        methods: ["GET", "POST", "DELETE"]
+        strip_path: false
+    plugins:
+      - name: jwt
+        config:
+          claims_to_verify: ["exp"]
+
   - name: voice-signaling
     url: http://signaling:4000
     routes:
