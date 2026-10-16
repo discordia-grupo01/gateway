@@ -31,6 +31,19 @@ contraseña, login federado, unirse a servidor via invitacion. Si agregan el
 plugin JWT a nivel de un service completo, revisen que ninguna ruta publica
 quede atrapada por error.
 
+## Rutas de admin (backoffice)
+`/v1/admin/**` (`GET`, `POST`, `DELETE`) se enruta a `discordia-admin`
+(`admin-service`, variable `ADMIN_UPSTREAM_URL`) conservando el path. Todas
+las rutas exigen JWT valido y no vencido; ninguna es publica y `/livez` /
+`/readyz` de admin no se exponen por Kong.
+
+Modelo de seguridad: Kong solo valida la firma y el `exp` del token. Quien es
+staff lo decide admin en cada request (tabla `staff_members`): sin token o con
+token vencido Kong responde `401`; con token valido de un usuario que no es
+staff, admin responde `403 FORBIDDEN`. Kong no sabe nada de suspensiones.
+Si admin esta caido, Kong devuelve `502/503` y el resto de los servicios no
+se ve afectado.
+
 ## Rate limiting
 Configurado por IP en: `/v1/login` (60 req/min -- ver mas abajo por que no es
 10 como en el resto), `/v1/pin/login`, `/v1/oauth/google` y `/v1/refresh`
@@ -52,9 +65,9 @@ con k6, ver `infrastructure/load-test/README.md`).
 queda solo para el chequeo de sintaxis del CI) y suma `caddy` para TLS
 automático delante de Kong.
 
-`identity`, `servers` y `messaging` corren en sus propias VMs (no en este
+`identity`, `servers`, `messaging` y `admin` corren en sus propias VMs (no en este
 compose) — `IDENTITY_UPSTREAM_URL`/`SERVERS_UPSTREAM_URL`/
-`MESSAGING_UPSTREAM_URL` en `.env` apuntan a sus IPs de Tailscale. Ver
+`MESSAGING_UPSTREAM_URL`/`ADMIN_UPSTREAM_URL` en `.env` apuntan a sus IPs de Tailscale. Ver
 `.env.example` para la lista completa.
 
 **Deploy automático**: un push a `main` (después de que pase `validate`)
@@ -75,6 +88,6 @@ git clone -b main https://github.com/discordia-grupo01/gateway.git
 cd gateway
 
 cp .env.example .env
-nano .env   # completar JWT_SECRET, DOMAIN, IDENTITY/SERVERS/MESSAGING_UPSTREAM_URL
+nano .env   # completar JWT_SECRET, DOMAIN, IDENTITY/SERVERS/MESSAGING/ADMIN_UPSTREAM_URL
 docker compose up -d
 ```
