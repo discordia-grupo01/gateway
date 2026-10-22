@@ -181,22 +181,38 @@ services:
         paths: ["/api/voice/token"]
         methods: ["POST"]
         strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify: ["exp"]
       - name: voice-session-leave
         paths: ["/api/voice/session"]
         methods: ["DELETE"]
         strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify: ["exp"]
       - name: voice-participants
         paths: ["/api/voice/participants"]
         methods: ["GET"]
         strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify: ["exp"]
+      - name: voice-socket-ticket
+        paths: ["/api/voice/socket-ticket"]
+        methods: ["POST"]
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify: ["exp"]
       - name: voice-socket
         paths: ["/voice/socket"]
         methods: ["GET"]
         strip_path: false
-    plugins:
-      - name: jwt
-        config:
-          claims_to_verify: ["exp"]
 
   - name: messaging-service
     url: ${MESSAGING_UPSTREAM_URL}
