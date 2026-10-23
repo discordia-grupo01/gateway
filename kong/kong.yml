@@ -210,6 +210,7 @@ services:
 
   - name: messaging-service
     url: http://messaging:4000
+    connect_timeout: 3000
     routes:
       - name: messaging-routes
         paths:

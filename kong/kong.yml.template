@@ -216,6 +216,7 @@ services:
 
   - name: messaging-service
     url: ${MESSAGING_UPSTREAM_URL}
+    connect_timeout: 3000
     routes:
       - name: messaging-routes
         paths:
