@@ -272,6 +272,15 @@ services:
           - name: jwt
             config:
               claims_to_verify: ["exp"]
+      - name: messaging-presence
+        paths:
+          - "~/v1/presence$"
+        methods: ["GET"]
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify: ["exp"]
       - name: messaging-mentions
         paths:
           - "~/v1/mentions$"
