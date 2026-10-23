@@ -75,6 +75,14 @@ verificar que escala, pero no escalarlo), y `MESSAGING_UPSTREAM_URL` es una sola
 Si algún día se suman instancias, hay que apuntarla a un nombre que resuelva a todas, o definir
 un `upstream` de Kong con un `target` por instancia.
 
+## Notifications
+`notifications-service` (`NOTIFICATIONS_UPSTREAM_URL`) expone dos rutas: `POST
+/v1/notifications/socket-tickets` (con `jwt`, igual que el ticket de messaging) y el
+WebSocket `/notifications/socket`, que va sin `jwt` porque el navegador no puede mandar
+headers: se autentica con el ticket de un solo uso. Si `NOTIFICATIONS_UPSTREAM_URL` no está
+en el `.env`, `docker-compose.yml` usa una URL de relleno para que Kong arranque igual y esas
+dos rutas respondan 502 hasta que se configure.
+
 ## Deploy a producción
 
 `docker-compose.yml` renderiza `kong/kong.yml.template` con `envsubst`
@@ -82,9 +90,9 @@ un `upstream` de Kong con un `target` por instancia.
 queda solo para el chequeo de sintaxis del CI) y suma `caddy` para TLS
 automático delante de Kong.
 
-`identity`, `servers`, `messaging` y `admin` corren en sus propias VMs (no en este
+`identity`, `servers`, `messaging`, `notifications` y `admin` corren en sus propias VMs (no en este
 compose) — `IDENTITY_UPSTREAM_URL`/`SERVERS_UPSTREAM_URL`/
-`MESSAGING_UPSTREAM_URL`/`ADMIN_UPSTREAM_URL` en `.env` apuntan a sus IPs de Tailscale. Ver
+`MESSAGING_UPSTREAM_URL`/`NOTIFICATIONS_UPSTREAM_URL`/`ADMIN_UPSTREAM_URL` en `.env` apuntan a sus IPs de Tailscale. Ver
 `.env.example` para la lista completa.
 
 **Deploy automático**: un push a `main` (después de que pase `validate`)
