@@ -309,6 +309,22 @@ services:
       - name: messaging-socket
         paths: ["/socket"]
         strip_path: false
+  - name: notifications-service
+    url: ${NOTIFICATIONS_UPSTREAM_URL}
+    connect_timeout: 3000
+    routes:
+      - name: notifications-socket-tickets
+        paths: ["/v1/notifications/socket-tickets"]
+        methods: ["POST"]
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify: ["exp"]
+      - name: notifications-socket
+        paths: ["/notifications/socket"]
+        strip_path: false
+
 consumers:
   - username: discordia-users
     jwt_secrets:
