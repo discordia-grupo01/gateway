@@ -58,6 +58,31 @@ contra volumen por IP, para la que 10/min bloqueaba de mas a cualquier grupo
 de usuarios legitimos compartiendo una IP (encontrado con una prueba de carga
 con k6, ver `infrastructure/load-test/README.md`).
 
+## Varias instancias de messaging
+`MESSAGING_UPSTREAM_URL` puede ser un nombre que resuelva a más de una IP: Kong reparte
+las peticiones (y las conexiones del socket) entre todas. En local se prueba con
+`infrastructure/docker-compose.multi.yml` (ver su README).
+
+`messaging-service` tiene `connect_timeout: 3000`. Con el valor por defecto (60 s), cuando
+una instancia muere Kong sigue mandándole una parte del tráfico hasta que expira su caché de
+DNS, y cada intento se cuelga un minuto antes de reintentar en la instancia viva. El ticket
+del socket dura 30 s, así que un cliente que se reconectaba en ese momento llegaba con el
+ticket vencido y no podía entrar. Con 3 s, reconectar tarda ~3 s en el peor caso (se probó
+matando una instancia con `docker kill`).
+
+En producción se mantiene **una sola instancia** de `messaging` (indicación de la cátedra:
+verificar que escala, pero no escalarlo), y `MESSAGING_UPSTREAM_URL` es una sola IP de Tailscale.
+Si algún día se suman instancias, hay que apuntarla a un nombre que resuelva a todas, o definir
+un `upstream` de Kong con un `target` por instancia.
+
+## Notifications
+`notifications-service` (`NOTIFICATIONS_UPSTREAM_URL`) expone dos rutas: `POST
+/v1/notifications/socket-tickets` (con `jwt`, igual que el ticket de messaging) y el
+WebSocket `/notifications/socket`, que va sin `jwt` porque el navegador no puede mandar
+headers: se autentica con el ticket de un solo uso. Si `NOTIFICATIONS_UPSTREAM_URL` no está
+en el `.env`, `docker-compose.yml` usa una URL de relleno para que Kong arranque igual y esas
+dos rutas respondan 502 hasta que se configure.
+
 ## Deploy a producción
 
 `docker-compose.yml` renderiza `kong/kong.yml.template` con `envsubst`
@@ -65,9 +90,9 @@ con k6, ver `infrastructure/load-test/README.md`).
 queda solo para el chequeo de sintaxis del CI) y suma `caddy` para TLS
 automático delante de Kong.
 
-`identity`, `servers`, `messaging` y `admin` corren en sus propias VMs (no en este
+`identity`, `servers`, `messaging`, `notifications` y `admin` corren en sus propias VMs (no en este
 compose) — `IDENTITY_UPSTREAM_URL`/`SERVERS_UPSTREAM_URL`/
-`MESSAGING_UPSTREAM_URL`/`ADMIN_UPSTREAM_URL` en `.env` apuntan a sus IPs de Tailscale. Ver
+`MESSAGING_UPSTREAM_URL`/`NOTIFICATIONS_UPSTREAM_URL`/`ADMIN_UPSTREAM_URL` en `.env` apuntan a sus IPs de Tailscale. Ver
 `.env.example` para la lista completa.
 
 **Deploy automático**: un push a `main` (después de que pase `validate`)
