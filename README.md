@@ -51,6 +51,10 @@ Configurado por IP en: `/v1/login` (60 req/min -- ver mas abajo por que no es
 gateway; identify-service ya limita ese endpoint por email a nivel de
 aplicacion (ver su README, seccion de recuperacion de contraseña).
 
+`GET /v1/servers/:id/messages/search` (busqueda de mensajes de messaging) tiene
+120 req/min: el cliente busca mientras se escribe, con debounce, y el texto se
+busca con una regex que recorre los mensajes de los canales del servidor.
+
 `/v1/login` se subio de 10 a 60 req/min porque dejo de ser la unica defensa
 contra fuerza bruta: identify-service ahora bloquea intentos fallidos por
 `(email, ip)` (ver su README) -- a Kong solo le queda la proteccion gruesa
