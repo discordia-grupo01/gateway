@@ -87,6 +87,10 @@ headers: se autentica con el ticket de un solo uso. Si `NOTIFICATIONS_UPSTREAM_U
 en el `.env`, `docker-compose.yml` usa una URL de relleno para que Kong arranque igual y esas
 dos rutas respondan 502 hasta que se configure.
 
+Las notificaciones push (`/v1/notifications/push/...`: dispositivos, interruptor y clave pública
+VAPID) van por una sola ruta `notifications-push` con `jwt` y métodos `GET`, `PUT`, `POST` y
+`DELETE`. El token del dispositivo viaja en el cuerpo, nunca en la URL.
+
 ## Deploy a producción
 
 `docker-compose.yml` renderiza `kong/kong.yml.template` con `envsubst`
