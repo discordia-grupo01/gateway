@@ -171,12 +171,18 @@ services:
   - name: metrics-service
     url: http://metrics:8080
     routes:
-      - name: metrics-routes
+      - name: metrics-read-routes
         paths:
-          - /v1/metrics
-          - /v1/status
+          - "~/v1/status$"
+          - "~/v1/metrics/global$"
           - "~/v1/servers/[^/]+/metrics(?:/.*)?$"
-        methods: ["GET", "POST"]
+        methods: ["GET"]
+        strip_path: false
+      - name: metrics-incident-write-routes
+        paths:
+          - "~/v1/metrics/incidents$"
+          - "~/v1/metrics/incidents/[^/]+/resolve$"
+        methods: ["POST"]
         strip_path: false
     plugins:
       - name: jwt
