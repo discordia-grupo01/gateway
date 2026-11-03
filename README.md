@@ -5,7 +5,7 @@ y aplica rate limiting -- los tres requisitos que pide el RNF de API Gateway.
 
 ## Por que DB-less
 Kong normalmente guarda su config en su propia Postgres/Cassandra. En modo
-DB-less, la config vive en un solo archivo YAML (`kong/kong.yml`) versionado
+DB-less, la config vive en un solo archivo YAML (`kong/kong.yml.template`) versionado
 en este repo -- sin sumar otra base de datos al stack, algo importante dado
 el limite de RAM del VM de despliegue.
 
@@ -18,11 +18,18 @@ La API queda expuesta en `http://localhost:8000`. El admin API (para debug)
 en `http://localhost:8001` -- NO exponer este puerto en producción.
 
 ## Agregar un servicio nuevo
-Sumar una entrada en `services:` dentro de `kong/kong.yml`, con su `url`
-interna (nombre del contenedor Docker) y las rutas (`paths`) que atiende.
-Despues de editar, correr:
+Toda la config está en `kong/kong.yml.template` (no hay otro `kong.yml` en el
+repo). Sumar una entrada en `services:` con `url: ${NOMBRE_UPSTREAM_URL}` y las
+rutas (`paths`) que atiende, y agregar esa variable a `docker-compose.yml`
+(servicio `kong-config`) y a `.env.example`. El nombre tiene que terminar en
+`_UPSTREAM_URL`: el CI reemplaza esas variables por una URL de prueba, renderiza
+el template y lo valida con `kong config parse`; una variable con otro nombre
+hace fallar el CI.
+
+Al arrancar, `kong-config` reemplaza las variables con `envsubst` y Kong carga
+el resultado. Después de editar el template, en local:
 ```bash
-docker compose restart kong
+docker compose up -d --force-recreate kong-config gateway
 ```
 
 ## Rutas publicas (sin JWT)
@@ -109,9 +116,7 @@ configure. En el panel de Mercado Pago, la URL del webhook es
 ## Deploy a producción
 
 `docker-compose.yml` renderiza `kong/kong.yml.template` con `envsubst`
-(`kong-config`, en vez de usar el `kong/kong.yml` ya commiteado -- ese
-queda solo para el chequeo de sintaxis del CI) y suma `caddy` para TLS
-automático delante de Kong.
+(`kong-config`) y suma `caddy` para TLS automático delante de Kong.
 
 `identity`, `servers`, `messaging`, `notifications`, `metrics`, `admin` y `billing` corren en sus propias VMs (no en este
 compose) — `IDENTITY_UPSTREAM_URL`/`SERVERS_UPSTREAM_URL`/

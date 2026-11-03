@@ -10,9 +10,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Validar sintaxis de kong.yml
+      # Se valida el template, que es lo que se despliega: se renderiza con
+      # valores de prueba (como hace kong-config con envsubst) y Kong lo parsea.
+      - name: Validar kong.yml.template
         run: |
-          docker run --rm -e KONG_DATABASE=off -v $(pwd)/kong/kong.yml:/kong.yml kong:3.6 kong config parse /kong.yml
+          sed -E \
+            -e 's#\$\{[A-Z_]+_UPSTREAM_URL\}#http://upstream.invalid:8080#g' \
+            -e 's#\$\{JWT_SECRET\}#ci-secret#g' \
+            kong/kong.yml.template > "$RUNNER_TEMP/kong.yml"
+          if grep -n '\${' "$RUNNER_TEMP/kong.yml"; then
+            echo "::error::El template tiene una variable sin valor de prueba en el CI (arriba). Si es un upstream, que termine en _UPSTREAM_URL."
+            exit 1
+          fi
+          docker run --rm -e KONG_DATABASE=off -v "$RUNNER_TEMP/kong.yml:/kong.yml:ro" kong:3.6 kong config parse /kong.yml
 
   deploy:
     needs: validate
