@@ -11,6 +11,7 @@ services:
       NOTIFICATIONS_UPSTREAM_URL: ${NOTIFICATIONS_UPSTREAM_URL}
       VOICE_UPSTREAM_URL: ${VOICE_UPSTREAM_URL}
       ADMIN_UPSTREAM_URL: ${ADMIN_UPSTREAM_URL}
+      METRICS_UPSTREAM_URL: ${METRICS_UPSTREAM_URL}
     volumes:
       - ./kong/kong.yml.template:/template/kong.yml.template:ro
       - kong_rendered:/rendered

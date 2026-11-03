@@ -87,6 +87,10 @@ headers: se autentica con el ticket de un solo uso. Si `NOTIFICATIONS_UPSTREAM_U
 en el `.env`, `docker-compose.yml` usa una URL de relleno para que Kong arranque igual y esas
 dos rutas respondan 502 hasta que se configure.
 
+Las notificaciones push (`/v1/notifications/push/...`: dispositivos, interruptor y clave pública
+VAPID) van por una sola ruta `notifications-push` con `jwt` y métodos `GET`, `PUT`, `POST` y
+`DELETE`. El token del dispositivo viaja en el cuerpo, nunca en la URL.
+
 ## Deploy a producción
 
 `docker-compose.yml` renderiza `kong/kong.yml.template` con `envsubst`
@@ -94,9 +98,9 @@ dos rutas respondan 502 hasta que se configure.
 queda solo para el chequeo de sintaxis del CI) y suma `caddy` para TLS
 automático delante de Kong.
 
-`identity`, `servers`, `messaging`, `notifications` y `admin` corren en sus propias VMs (no en este
+`identity`, `servers`, `messaging`, `notifications`, `metrics` y `admin` corren en sus propias VMs (no en este
 compose) — `IDENTITY_UPSTREAM_URL`/`SERVERS_UPSTREAM_URL`/
-`MESSAGING_UPSTREAM_URL`/`NOTIFICATIONS_UPSTREAM_URL`/`ADMIN_UPSTREAM_URL` en `.env` apuntan a sus IPs de Tailscale. Ver
+`MESSAGING_UPSTREAM_URL`/`NOTIFICATIONS_UPSTREAM_URL`/`METRICS_UPSTREAM_URL`/`ADMIN_UPSTREAM_URL` en `.env` apuntan a sus IPs de Tailscale. Ver
 `.env.example` para la lista completa.
 
 **Deploy automático**: un push a `main` (después de que pase `validate`)
