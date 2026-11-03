@@ -91,6 +91,21 @@ Las notificaciones push (`/v1/notifications/push/...`: dispositivos, interruptor
 VAPID) van por una sola ruta `notifications-push` con `jwt` y métodos `GET`, `PUT`, `POST` y
 `DELETE`. El token del dispositivo viaja en el cuerpo, nunca en la URL.
 
+## Billing
+`discordia-billing` (`BILLING_UPSTREAM_URL`) tiene dos services:
+
+- `billing-auth`: `/v1/billing/**` (`GET`, `POST`) con `jwt`. Son los puntos y Premium.
+- `billing-public`: solo `POST /webhooks/mercadopago`, **sin** `jwt` porque lo llama Mercado
+  Pago, con rate limiting de 300 req/min por IP. billing valida la firma `x-signature`, que
+  cubre `data.id` del query string y el header `x-request-id`, así que Kong no tiene que
+  modificar ni el query ni esos headers (por defecto no los toca; probado con un Kong local).
+
+Los simuladores de desarrollo (`/dev/billing/*`) y los health checks de billing **no** se
+publican. Si `BILLING_UPSTREAM_URL` no está en el `.env`, `docker-compose.yml` usa una URL de
+relleno para que Kong arranque igual y las rutas de billing respondan 502 hasta que se
+configure. En el panel de Mercado Pago, la URL del webhook es
+`https://<DOMAIN>/webhooks/mercadopago`.
+
 ## Deploy a producción
 
 `docker-compose.yml` renderiza `kong/kong.yml.template` con `envsubst`
@@ -98,9 +113,9 @@ VAPID) van por una sola ruta `notifications-push` con `jwt` y métodos `GET`, `P
 queda solo para el chequeo de sintaxis del CI) y suma `caddy` para TLS
 automático delante de Kong.
 
-`identity`, `servers`, `messaging`, `notifications`, `metrics` y `admin` corren en sus propias VMs (no en este
+`identity`, `servers`, `messaging`, `notifications`, `metrics`, `admin` y `billing` corren en sus propias VMs (no en este
 compose) — `IDENTITY_UPSTREAM_URL`/`SERVERS_UPSTREAM_URL`/
-`MESSAGING_UPSTREAM_URL`/`NOTIFICATIONS_UPSTREAM_URL`/`METRICS_UPSTREAM_URL`/`ADMIN_UPSTREAM_URL` en `.env` apuntan a sus IPs de Tailscale. Ver
+`MESSAGING_UPSTREAM_URL`/`NOTIFICATIONS_UPSTREAM_URL`/`METRICS_UPSTREAM_URL`/`ADMIN_UPSTREAM_URL`/`BILLING_UPSTREAM_URL` en `.env` apuntan a sus IPs de Tailscale. Ver
 `.env.example` para la lista completa.
 
 Metrics se publica mediante rutas JWT explícitas: las consultas (`GET
