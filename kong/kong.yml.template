@@ -264,6 +264,15 @@ services:
     url: ${MESSAGING_UPSTREAM_URL}
     connect_timeout: 3000
     routes:
+      - name: messaging-voice-access
+        paths:
+          - "~/v1/voice-access/[^/]+$"
+        methods: ["GET"]
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify: ["exp"]
       - name: messaging-routes
         paths:
           - "~/v1/channels/[^/]+/messages$"
@@ -425,6 +434,37 @@ services:
       - name: notifications-socket
         paths: ["/notifications/socket"]
         strip_path: false
+
+  # Webhook de Mercado Pago: publico (MP no manda JWT). billing valida la
+  # firma x-signature, que cubre data.id del query string y x-request-id: Kong
+  # no tiene que tocar ni el query ni esos headers (por defecto no los toca).
+  # El rate limit solo frena volumen; MP manda varios avisos por pago.
+  - name: billing-public
+    url: ${BILLING_UPSTREAM_URL}
+    routes:
+      - name: billing-mercadopago-webhook
+        paths: ["/webhooks/mercadopago"]
+        methods: ["POST"]
+        strip_path: false
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 300
+              policy: local
+
+  # API de billing (puntos y Premium). /dev/billing (simuladores) y los
+  # health checks no se publican.
+  - name: billing-auth
+    url: ${BILLING_UPSTREAM_URL}
+    routes:
+      - name: billing-routes
+        paths: ["/v1/billing"]
+        methods: ["GET", "POST"]
+        strip_path: false
+    plugins:
+      - name: jwt
+        config:
+          claims_to_verify: ["exp"]
 
 consumers:
   - username: discordia-users

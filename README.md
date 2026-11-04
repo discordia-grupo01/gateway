@@ -5,7 +5,7 @@ y aplica rate limiting -- los tres requisitos que pide el RNF de API Gateway.
 
 ## Por que DB-less
 Kong normalmente guarda su config en su propia Postgres/Cassandra. En modo
-DB-less, la config vive en un solo archivo YAML (`kong/kong.yml`) versionado
+DB-less, la config vive en un solo archivo YAML (`kong/kong.yml.template`) versionado
 en este repo -- sin sumar otra base de datos al stack, algo importante dado
 el limite de RAM del VM de despliegue.
 
@@ -18,11 +18,18 @@ La API queda expuesta en `http://localhost:8000`. El admin API (para debug)
 en `http://localhost:8001` -- NO exponer este puerto en producción.
 
 ## Agregar un servicio nuevo
-Sumar una entrada en `services:` dentro de `kong/kong.yml`, con su `url`
-interna (nombre del contenedor Docker) y las rutas (`paths`) que atiende.
-Despues de editar, correr:
+Toda la config está en `kong/kong.yml.template` (no hay otro `kong.yml` en el
+repo). Sumar una entrada en `services:` con `url: ${NOMBRE_UPSTREAM_URL}` y las
+rutas (`paths`) que atiende, y agregar esa variable a `docker-compose.yml`
+(servicio `kong-config`) y a `.env.example`. El nombre tiene que terminar en
+`_UPSTREAM_URL`: el CI reemplaza esas variables por una URL de prueba, renderiza
+el template y lo valida con `kong config parse`; una variable con otro nombre
+hace fallar el CI.
+
+Al arrancar, `kong-config` reemplaza las variables con `envsubst` y Kong carga
+el resultado. Después de editar el template, en local:
 ```bash
-docker compose restart kong
+docker compose up -d --force-recreate kong-config gateway
 ```
 
 ## Rutas publicas (sin JWT)
@@ -91,16 +98,29 @@ Las notificaciones push (`/v1/notifications/push/...`: dispositivos, interruptor
 VAPID) van por una sola ruta `notifications-push` con `jwt` y métodos `GET`, `PUT`, `POST` y
 `DELETE`. El token del dispositivo viaja en el cuerpo, nunca en la URL.
 
+## Billing
+`discordia-billing` (`BILLING_UPSTREAM_URL`) tiene dos services:
+
+- `billing-auth`: `/v1/billing/**` (`GET`, `POST`) con `jwt`. Son los puntos y Premium.
+- `billing-public`: solo `POST /webhooks/mercadopago`, **sin** `jwt` porque lo llama Mercado
+  Pago, con rate limiting de 300 req/min por IP. billing valida la firma `x-signature`, que
+  cubre `data.id` del query string y el header `x-request-id`, así que Kong no tiene que
+  modificar ni el query ni esos headers (por defecto no los toca; probado con un Kong local).
+
+Los simuladores de desarrollo (`/dev/billing/*`) y los health checks de billing **no** se
+publican. Si `BILLING_UPSTREAM_URL` no está en el `.env`, `docker-compose.yml` usa una URL de
+relleno para que Kong arranque igual y las rutas de billing respondan 502 hasta que se
+configure. En el panel de Mercado Pago, la URL del webhook es
+`https://<DOMAIN>/webhooks/mercadopago`.
+
 ## Deploy a producción
 
 `docker-compose.yml` renderiza `kong/kong.yml.template` con `envsubst`
-(`kong-config`, en vez de usar el `kong/kong.yml` ya commiteado -- ese
-queda solo para el chequeo de sintaxis del CI) y suma `caddy` para TLS
-automático delante de Kong.
+(`kong-config`) y suma `caddy` para TLS automático delante de Kong.
 
-`identity`, `servers`, `messaging`, `notifications`, `metrics` y `admin` corren en sus propias VMs (no en este
+`identity`, `servers`, `messaging`, `notifications`, `metrics`, `admin` y `billing` corren en sus propias VMs (no en este
 compose) — `IDENTITY_UPSTREAM_URL`/`SERVERS_UPSTREAM_URL`/
-`MESSAGING_UPSTREAM_URL`/`NOTIFICATIONS_UPSTREAM_URL`/`METRICS_UPSTREAM_URL`/`ADMIN_UPSTREAM_URL` en `.env` apuntan a sus IPs de Tailscale. Ver
+`MESSAGING_UPSTREAM_URL`/`NOTIFICATIONS_UPSTREAM_URL`/`METRICS_UPSTREAM_URL`/`ADMIN_UPSTREAM_URL`/`BILLING_UPSTREAM_URL` en `.env` apuntan a sus IPs de Tailscale. Ver
 `.env.example` para la lista completa.
 
 Metrics se publica mediante rutas JWT explícitas: las consultas (`GET
