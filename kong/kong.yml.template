@@ -393,6 +393,14 @@ services:
           - name: jwt
             config:
               claims_to_verify: ["exp"]
+      - name: messaging-attachment-tickets
+        paths: ["/v1/attachment-tickets"]
+        methods: ["POST"]
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify: ["exp"]
       - name: messaging-attachments
         paths: ["/v1/attachments"]
         methods: ["POST"]
@@ -401,6 +409,26 @@ services:
           - name: jwt
             config:
               claims_to_verify: ["exp"]
+      # Sin jwt: la sube el navegador, que no tiene el token, con un ticket que
+      # valida messaging. Sin buffering, para que el ticket se canjee al llegar el
+      # pedido y no despues de recibir todo el archivo. No sumar
+      # request-size-limiting: guarda en disco los pedidos chunked. Ver README.
+      - name: messaging-attachments-direct
+        paths: ["/v1/attachments/direct"]
+        methods: ["POST", "OPTIONS"]
+        strip_path: false
+        request_buffering: false
+        plugins:
+          - name: cors
+            config:
+              origins: ["${WEB_ORIGIN}"]
+              methods: ["POST", "OPTIONS"]
+              headers: ["Content-Type", "X-Upload-Ticket"]
+              max_age: 3600
+          - name: rate-limiting
+            config:
+              minute: 60
+              policy: local
       - name: messaging-socket
         paths: ["/socket"]
         strip_path: false

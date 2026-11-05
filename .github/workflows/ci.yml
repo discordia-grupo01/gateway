@@ -17,6 +17,7 @@ jobs:
           sed -E \
             -e 's#\$\{[A-Z_]+_UPSTREAM_URL\}#http://upstream.invalid:8080#g' \
             -e 's#\$\{JWT_SECRET\}#ci-secret#g' \
+            -e 's#\$\{WEB_ORIGIN\}#https://web.invalid#g' \
             kong/kong.yml.template > "$RUNNER_TEMP/kong.yml"
           if grep -n '\${' "$RUNNER_TEMP/kong.yml"; then
             echo "::error::El template tiene una variable sin valor de prueba en el CI (arriba). Si es un upstream, que termine en _UPSTREAM_URL."

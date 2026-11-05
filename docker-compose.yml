@@ -15,6 +15,9 @@ services:
       # Mientras billing no tenga su VM, una URL de relleno deja arrancar a
       # Kong; sus rutas responden 502 hasta que se configure.
       BILLING_UPSTREAM_URL: ${BILLING_UPSTREAM_URL:-http://billing.invalid:8080}
+      # Unico origen que puede subir adjuntos directo desde el navegador. Sin
+      # configurar, Kong arranca igual y solo falla esa subida desde la web.
+      WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}
     volumes:
       - ./kong/kong.yml.template:/template/kong.yml.template:ro
       - kong_rendered:/rendered
