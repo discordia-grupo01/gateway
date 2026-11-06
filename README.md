@@ -54,6 +54,11 @@ El tope de tamaño lo aplica messaging, que conoce el plan del usuario. No sumar
 `request-size-limiting` a esta ruta: con un pedido chunked guarda el cuerpo en
 disco y no aplica el tope (probado con Kong 3.6: pasaron 60 MiB sin ticket).
 
+El registro de auditoría de moderación se publica como
+`GET /v1/servers/{serverId}/moderation-audit` hacia `discordia-servers`.
+Kong exige un JWT válido; el servicio verifica además los permisos de
+moderación del usuario dentro del servidor.
+
 ## Rutas de admin (backoffice)
 `/v1/admin/**` (`GET`, `POST`, `DELETE`) se enruta a `discordia-admin`
 (`admin-service`, variable `ADMIN_UPSTREAM_URL`) conservando el path. Todas
