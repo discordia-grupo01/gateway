@@ -38,6 +38,11 @@ contraseña, login federado, unirse a servidor via invitacion. Si agregan el
 plugin JWT a nivel de un service completo, revisen que ninguna ruta publica
 quede atrapada por error.
 
+El registro de auditoría de moderación se publica como
+`GET /v1/servers/{serverId}/moderation-audit` hacia `discordia-servers`.
+Kong exige un JWT válido; el servicio verifica además los permisos de
+moderación del usuario dentro del servidor.
+
 ## Rutas de admin (backoffice)
 `/v1/admin/**` (`GET`, `POST`, `DELETE`) se enruta a `discordia-admin`
 (`admin-service`, variable `ADMIN_UPSTREAM_URL`) conservando el path. Todas
@@ -101,7 +106,7 @@ VAPID) van por una sola ruta `notifications-push` con `jwt` y métodos `GET`, `P
 ## Billing
 `discordia-billing` (`BILLING_UPSTREAM_URL`) tiene dos services:
 
-- `billing-auth`: `/v1/billing/**` (`GET`, `POST`) con `jwt`. Son los puntos y Premium.
+- `billing-auth`: `/v1/billing/**` (`GET`, `POST`, `DELETE`) con `jwt`. Son los puntos, Premium y los boosts.
 - `billing-public`: solo `POST /webhooks/mercadopago`, **sin** `jwt` porque lo llama Mercado
   Pago, con rate limiting de 300 req/min por IP. billing valida la firma `x-signature`, que
   cubre `data.id` del query string y el header `x-request-id`, así que Kong no tiene que
