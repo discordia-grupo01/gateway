@@ -129,7 +129,7 @@ compose) — `IDENTITY_UPSTREAM_URL`/`SERVERS_UPSTREAM_URL`/
 `.env.example` para la lista completa.
 
 Metrics se publica mediante rutas JWT explícitas: las consultas (`GET
-/v1/status`, `GET /v1/metrics/global` y las métricas de servidor) están
+/v1/status`, `GET /v1/health/services`, `GET /v1/metrics/global` y las métricas de servidor) están
 separadas de las mutaciones de incidentes (`POST /v1/metrics/incidents` y
 `POST /v1/metrics/incidents/:id/resolve`). Los health checks `/livez` y
 `/readyz` de metrics no se exponen por Kong.

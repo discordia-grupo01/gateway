@@ -185,6 +185,7 @@ services:
       - name: metrics-read-routes
         paths:
           - "~/v1/status$"
+          - "~/v1/health/services$"
           - "~/v1/metrics/global$"
           - "~/v1/servers/[^/]+/metrics(?:/.*)?$"
         methods: ["GET"]
