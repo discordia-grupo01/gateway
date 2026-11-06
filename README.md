@@ -38,6 +38,22 @@ contraseña, login federado, unirse a servidor via invitacion. Si agregan el
 plugin JWT a nivel de un service completo, revisen que ninguna ruta publica
 quede atrapada por error.
 
+`POST /v1/attachments/direct` tampoco lleva `jwt`, pero no es publica: messaging
+exige un ticket de un solo uso que se pide con JWT en `POST /v1/attachment-tickets`.
+Existe porque la web no puede subir por su backend (Vercel corta los pedidos en
+4,5 MB) y el navegador no tiene el token. Como queda sin `jwt`, la ruta tiene:
+- `cors`: solo acepta el origen de `WEB_ORIGIN` (el dominio de produccion de la
+  web, sin los previews de Vercel).
+- `rate-limiting`: 60 req/min por IP.
+- `request_buffering: false`: Kong le pasa el pedido a messaging mientras lo
+  recibe, y messaging rechaza un ticket invalido antes de leer el archivo. Si no,
+  Kong primero recibe todo: una subida lenta llega con el ticket vencido (dura
+  60 s) y cualquiera puede ocupar el disco de Kong sin ticket.
+
+El tope de tamaño lo aplica messaging, que conoce el plan del usuario. No sumar
+`request-size-limiting` a esta ruta: con un pedido chunked guarda el cuerpo en
+disco y no aplica el tope (probado con Kong 3.6: pasaron 60 MiB sin ticket).
+
 El registro de auditoría de moderación se publica como
 `GET /v1/servers/{serverId}/moderation-audit` hacia `discordia-servers`.
 Kong exige un JWT válido; el servicio verifica además los permisos de
