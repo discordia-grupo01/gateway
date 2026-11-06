@@ -38,6 +38,11 @@ contraseña, login federado, unirse a servidor via invitacion. Si agregan el
 plugin JWT a nivel de un service completo, revisen que ninguna ruta publica
 quede atrapada por error.
 
+El registro de auditoría de moderación se publica como
+`GET /v1/servers/{serverId}/moderation-audit` hacia `discordia-servers`.
+Kong exige un JWT válido; el servicio verifica además los permisos de
+moderación del usuario dentro del servidor.
+
 ## Rutas de admin (backoffice)
 `/v1/admin/**` (`GET`, `POST`, `DELETE`) se enruta a `discordia-admin`
 (`admin-service`, variable `ADMIN_UPSTREAM_URL`) conservando el path. Todas

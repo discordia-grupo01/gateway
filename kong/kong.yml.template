@@ -148,6 +148,11 @@ services:
           - "~/v1/servers/[^/]+/mutes/[^/]+$"
         methods: ["POST", "DELETE"]
         strip_path: false
+      - name: servers-moderation-audit
+        paths:
+          - "~/v1/servers/[^/]+/moderation-audit$"
+        methods: ["GET"]
+        strip_path: false
       - name: servers-routes
         paths:
           - /v1/servers
