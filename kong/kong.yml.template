@@ -3,6 +3,14 @@
 _format_version: "3.0"
 
 services:
+  - name: identity-health
+    url: ${IDENTITY_UPSTREAM_URL}/readyz
+    routes:
+      - name: identity-health
+        paths: ["/health/identify"]
+        methods: ["GET"]
+        strip_path: true
+
   - name: identity-public
     url: ${IDENTITY_UPSTREAM_URL}
     routes:
@@ -125,6 +133,14 @@ services:
         config:
           claims_to_verify: ["exp"]
 
+  - name: servers-health
+    url: ${SERVERS_UPSTREAM_URL}/readyz
+    routes:
+      - name: servers-health
+        paths: ["/health/servers"]
+        methods: ["GET"]
+        strip_path: true
+
   - name: servers-public
     url: ${SERVERS_UPSTREAM_URL}
     routes:
@@ -201,6 +217,14 @@ services:
         config:
           claims_to_verify: ["exp"]
 
+  - name: voice-health
+    url: ${VOICE_UPSTREAM_URL}/readyz
+    routes:
+      - name: voice-health
+        paths: ["/health/voice"]
+        methods: ["GET"]
+        strip_path: true
+
   - name: voice-signaling
     url: ${VOICE_UPSTREAM_URL}
     routes:
@@ -265,6 +289,14 @@ services:
         paths: ["/voice/socket"]
         methods: ["GET"]
         strip_path: false
+
+  - name: messaging-health
+    url: ${MESSAGING_UPSTREAM_URL}/readyz
+    routes:
+      - name: messaging-health
+        paths: ["/health/messaging"]
+        methods: ["GET"]
+        strip_path: true
 
   - name: messaging-service
     url: ${MESSAGING_UPSTREAM_URL}
@@ -438,6 +470,14 @@ services:
       - name: messaging-socket
         paths: ["/socket"]
         strip_path: false
+  - name: notifications-health
+    url: ${NOTIFICATIONS_UPSTREAM_URL}/readyz
+    routes:
+      - name: notifications-health
+        paths: ["/health/notifications"]
+        methods: ["GET"]
+        strip_path: true
+
   - name: notifications-service
     url: ${NOTIFICATIONS_UPSTREAM_URL}
     connect_timeout: 3000

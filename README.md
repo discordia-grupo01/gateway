@@ -38,6 +38,13 @@ contraseña, login federado, unirse a servidor via invitacion. Si agregan el
 plugin JWT a nivel de un service completo, revisen que ninguna ruta publica
 quede atrapada por error.
 
+Los health checks del monitoreo de plataforma también son públicos y no llevan
+`jwt`: `GET /health/identify`, `GET /health/servers`,
+`GET /health/messaging`, `GET /health/notifications` y `GET /health/voice`.
+Cada ruta conserva el path `/readyz` al llegar al servicio correspondiente.
+`metrics` debe consultar estas rutas a través del dominio de Kong, no las IPs
+privadas de los servicios.
+
 `POST /v1/attachments/direct` tampoco lleva `jwt`, pero no es publica: messaging
 exige un ticket de un solo uso que se pide con JWT en `POST /v1/attachment-tickets`.
 Existe porque la web no puede subir por su backend (Vercel corta los pedidos en
