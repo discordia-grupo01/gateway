@@ -40,7 +40,8 @@ quede atrapada por error.
 
 Los health checks del monitoreo de plataforma también son públicos y no llevan
 `jwt`: `GET /health/identify`, `GET /health/servers`,
-`GET /health/messaging`, `GET /health/notifications` y `GET /health/voice`.
+`GET /health/messaging`, `GET /health/notifications`, `GET /health/voice` y
+`GET /health/billing`.
 Cada ruta conserva el path `/readyz` al llegar al servicio correspondiente.
 `metrics` debe consultar estas rutas a través del dominio de Kong, no las IPs
 privadas de los servicios.
