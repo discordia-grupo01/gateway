@@ -31,6 +31,13 @@ services:
       KONG_DECLARATIVE_CONFIG: /kong/kong.yml
       KONG_PROXY_LISTEN: "0.0.0.0:8000"
       KONG_ADMIN_LISTEN: "127.0.0.1:8001"
+    # Kong toma worker_connections del limite de archivos abiertos (1024 por
+    # defecto). Cada WebSocket usa dos conexiones (cliente y messaging), asi
+    # que con 1024 un worker no pasaba de ~500 sockets y cortaba los nuevos.
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
     ports:
       - "${GATEWAY_BIND_IP:-127.0.0.1}:8000:8000"
     volumes:
