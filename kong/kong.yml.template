@@ -518,6 +518,14 @@ services:
         paths: ["/notifications/socket"]
         strip_path: false
 
+  - name: billing-health
+    url: ${BILLING_UPSTREAM_URL}/readyz
+    routes:
+      - name: billing-health
+        paths: ["/health/billing"]
+        methods: ["GET"]
+        strip_path: true
+
   # Webhook de Mercado Pago: publico (MP no manda JWT). billing valida la
   # firma x-signature, que cubre data.id del query string y x-request-id: Kong
   # no tiene que tocar ni el query ni esos headers (por defecto no los toca).
@@ -535,8 +543,8 @@ services:
               minute: 300
               policy: local
 
-  # API de billing (puntos y Premium). /dev/billing (simuladores) y los
-  # health checks no se publican.
+  # API de billing (puntos y Premium). /dev/billing (simuladores) no se
+  # publica; el health check va por /health/billing (arriba).
   - name: billing-auth
     url: ${BILLING_UPSTREAM_URL}
     routes:
