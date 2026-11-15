@@ -1,181 +1,132 @@
-# discordia-gateway (Kong, DB-less)
+# gateway
 
-Punto unico de entrada a la plataforma. Enruta hacia cada servicio, valida JWT
-y aplica rate limiting -- los tres requisitos que pide el RNF de API Gateway.
+API gateway de Discordia, hecho con Kong.
 
-## Por que DB-less
-Kong normalmente guarda su config en su propia Postgres/Cassandra. En modo
-DB-less, la config vive en un solo archivo YAML (`kong/kong.yml.template`) versionado
-en este repo -- sin sumar otra base de datos al stack, algo importante dado
-el limite de RAM del VM de despliegue.
+## Tabla de contenidos
 
-## Setup local
+- [Introducción](#introducción)
+- [Pre-requisitos](#pre-requisitos)
+- [Cómo correr](#cómo-correr)
+- [Variables de entorno](#variables-de-entorno)
+- [Comandos Docker](#comandos-docker)
+- [Tests](#tests)
+- [Más documentación](#más-documentación)
+
+## Introducción
+
+El gateway es el único punto de entrada a Discordia: los clientes (la web, la app y el backoffice) solo hablan con él, y él reparte cada pedido al servicio que corresponde. Hace tres cosas:
+
+- **Enruta:** cada ruta (`/v1/login`, `/v1/servers`, `/v1/admin/...`) va a su servicio.
+- **Valida el JWT:** rechaza con `401` los pedidos sin token o con el token vencido. Las rutas públicas (registro, login, recupero de contraseña, unirse por invitación, los health checks y el webhook de Mercado Pago) no lo exigen.
+- **Limita la velocidad:** pone un tope de pedidos por minuto y por IP en el login, el refresh y la búsqueda de mensajes.
+
+Kong funciona en modo DB-less: toda su configuración está en un solo archivo, [`kong/kong.yml.template`](kong/kong.yml.template), y no necesita su propia base de datos. Al arrancar, un contenedor reemplaza las variables de ese archivo con `envsubst` y Kong carga el resultado.
+
+En producción, delante de Kong corre Caddy, que pone el HTTPS con un dominio propio. Kong no sabe quién es staff ni quién está suspendido: solo verifica la firma y la fecha del token. Eso lo decide cada servicio.
+
+## Pre-requisitos
+
+- **Docker** y **Docker Compose** v2.24 o más nuevo.
+- Los servicios a los que enruta, solo si querés que los pedidos lleguen a algún lado. Sin ellos, Kong arranca igual y responde `502` en las rutas que no encuentran su servicio.
+
+## Cómo correr
+
+### Con Docker Compose
+
+```bash
+docker compose up
+```
+
+El gateway queda en `http://localhost:8000`. Para comprobar que valida el JWT, un pedido sin token a una ruta protegida tiene que dar `401`:
+
+```bash
+curl -i http://localhost:8000/v1/servers
+```
+
+Con un JWT válido el pedido pasa el chequeo del gateway. Si el servicio de destino no está levantado, la respuesta es `502`.
+
+Por defecto, Kong busca cada servicio en tu máquina, en estos puertos:
+
+| Servicio | Puerto |
+|---|---|
+| `identify-service` | 8080 |
+| `servers` | 8081 |
+| `messaging` | 4000 |
+| `notifications` | 4001 |
+| `voice-sfu` | 4002 |
+| `admin` | 8082 |
+| `metrics` | 8083 |
+| `billing` | 8084 |
+
+Como casi todos los servicios usan el mismo puerto por defecto, para correr varios a la vez cambiá el de cada uno con su variable `API_PORT` (o `SIGNALING_PORT` en `voice-sfu`) para que coincida con esta tabla. O editá las variables `*_UPSTREAM_URL` del gateway. Para levantar todo junto sin pensar en puertos, usá el compose del repositorio `infrastructure`.
+
+Si querés cambiar algo, copiá el archivo de ejemplo y editalo antes de levantar:
+
 ```bash
 cp .env.example .env
-docker compose up -d
 ```
-La API queda expuesta en `http://localhost:8000`. El admin API (para debug)
-en `http://localhost:8001` -- NO exponer este puerto en producción.
 
-## Agregar un servicio nuevo
-Toda la config está en `kong/kong.yml.template` (no hay otro `kong.yml` en el
-repo). Sumar una entrada en `services:` con `url: ${NOMBRE_UPSTREAM_URL}` y las
-rutas (`paths`) que atiende, y agregar esa variable a `docker-compose.yml`
-(servicio `kong-config`) y a `.env.example`. El nombre tiene que terminar en
-`_UPSTREAM_URL`: el CI reemplaza esas variables por una URL de prueba, renderiza
-el template y lo valida con `kong config parse`; una variable con otro nombre
-hace fallar el CI.
+Si tenés un `.env` en este directorio, Docker Compose lo toma solo. Usá `docker compose --env-file /dev/null up` para ignorarlo y partir de los valores por defecto.
 
-Al arrancar, `kong-config` reemplaza las variables con `envsubst` y Kong carga
-el resultado. Después de editar el template, en local:
+### Con HTTPS
+
+Para probar Caddy, que pone el HTTPS con un dominio, levantá el perfil `https`. Necesita un dominio público que apunte a tu máquina y los puertos 80 y 443 libres:
+
+```bash
+DOMAIN=tunombre.duckdns.org docker compose --profile https up
+```
+
+### Agregar un servicio nuevo
+
+1. Sumar una entrada en `services:` de `kong/kong.yml.template`, con `url: ${NOMBRE_UPSTREAM_URL}` y las rutas que atiende. El nombre de la variable tiene que terminar en `_UPSTREAM_URL`: el CI reemplaza esas variables por una URL de prueba, renderiza el template y lo valida con `kong config parse`.
+2. Agregar esa variable al servicio `kong-config` de `docker-compose.yml` y a `.env.example`.
+3. Recrear los contenedores:
+
 ```bash
 docker compose up -d --force-recreate kong-config gateway
 ```
 
-## Rutas publicas (sin JWT)
-Estas NO deben llevar el plugin `jwt`: registro, login, recupero de
-contraseña, login federado, unirse a servidor via invitacion. Si agregan el
-plugin JWT a nivel de un service completo, revisen que ninguna ruta publica
-quede atrapada por error.
+## Variables de entorno
 
-Los health checks del monitoreo de plataforma también son públicos y no llevan
-`jwt`: `GET /health/identify`, `GET /health/servers`,
-`GET /health/messaging`, `GET /health/notifications`, `GET /health/voice` y
-`GET /health/billing`.
-Cada ruta conserva el path `/readyz` al llegar al servicio correspondiente.
-`metrics` debe consultar estas rutas a través del dominio de Kong, no las IPs
-privadas de los servicios.
+Se leen del entorno o de un archivo `.env`. El archivo [`.env.example`](.env.example) trae valores listos para correr en local.
 
-`POST /v1/attachments/direct` tampoco lleva `jwt`, pero no es publica: messaging
-exige un ticket de un solo uso que se pide con JWT en `POST /v1/attachment-tickets`.
-Existe porque la web no puede subir por su backend (Vercel corta los pedidos en
-4,5 MB) y el navegador no tiene el token. Como queda sin `jwt`, la ruta tiene:
-- `cors`: solo acepta el origen de `WEB_ORIGIN` (el dominio de produccion de la
-  web, sin los previews de Vercel).
-- `rate-limiting`: 60 req/min por IP.
-- `request_buffering: false`: Kong le pasa el pedido a messaging mientras lo
-  recibe, y messaging rechaza un ticket invalido antes de leer el archivo. Si no,
-  Kong primero recibe todo: una subida lenta llega con el ticket vencido (dura
-  60 s) y cualquiera puede ocupar el disco de Kong sin ticket.
+| Variable | Default | Descripción |
+|---|---|---|
+| `JWT_SECRET` | `secreto-jwt-solo-local` | Secreto con el que se valida la firma del JWT. Tiene que ser el mismo que usa `identify-service`. Es un secreto. |
+| `IDENTITY_UPSTREAM_URL` | `http://host.docker.internal:8080` | Dónde escucha `identify-service`. |
+| `SERVERS_UPSTREAM_URL` | `http://host.docker.internal:8081` | Dónde escucha `servers`. |
+| `MESSAGING_UPSTREAM_URL` | `http://host.docker.internal:4000` | Dónde escucha `messaging`. Puede ser un nombre que resuelva a más de una IP: Kong reparte los pedidos. |
+| `NOTIFICATIONS_UPSTREAM_URL` | `http://host.docker.internal:4001` | Dónde escucha `notifications`. |
+| `VOICE_UPSTREAM_URL` | `http://host.docker.internal:4002` | Dónde escucha `voice-sfu`. |
+| `ADMIN_UPSTREAM_URL` | `http://host.docker.internal:8082` | Dónde escucha `admin`. |
+| `METRICS_UPSTREAM_URL` | `http://host.docker.internal:8083` | Dónde escucha `metrics`. |
+| `BILLING_UPSTREAM_URL` | `http://host.docker.internal:8084` | Dónde escucha `billing`. |
+| `WEB_ORIGIN` | `http://localhost:3000` | Único origen que puede subir adjuntos directo desde el navegador (CORS). |
+| `GATEWAY_BIND_IP` | `127.0.0.1` | IP en la que se publica el puerto 8000. |
+| `DOMAIN` | `localhost` | Dominio público. Solo lo usa Caddy, con el perfil `https`. |
 
-El tope de tamaño lo aplica messaging, que conoce el plan del usuario. No sumar
-`request-size-limiting` a esta ruta: con un pedido chunked guarda el cuerpo en
-disco y no aplica el tope (probado con Kong 3.6: pasaron 60 MiB sin ticket).
+## Comandos Docker
 
-El registro de auditoría de moderación se publica como
-`GET /v1/servers/{serverId}/moderation-audit` hacia `discordia-servers`.
-Kong exige un JWT válido; el servicio verifica además los permisos de
-moderación del usuario dentro del servidor.
+Todos desde la raíz del repositorio.
 
-## Rutas de admin (backoffice)
-`/v1/admin/**` (`GET`, `POST`, `DELETE`) se enruta a `discordia-admin`
-(`admin-service`, variable `ADMIN_UPSTREAM_URL`) conservando el path. Todas
-las rutas exigen JWT valido y no vencido; ninguna es publica y `/livez` /
-`/readyz` de admin no se exponen por Kong.
-
-Modelo de seguridad: Kong solo valida la firma y el `exp` del token. Quien es
-staff lo decide admin en cada request (tabla `staff_members`): sin token o con
-token vencido Kong responde `401`; con token valido de un usuario que no es
-staff, admin responde `403 FORBIDDEN`. Kong no sabe nada de suspensiones.
-Si admin esta caido, Kong devuelve `502/503` y el resto de los servicios no
-se ve afectado.
-
-## Rate limiting
-Configurado por IP en: `/v1/login` (60 req/min -- ver mas abajo por que no es
-10 como en el resto), `/v1/pin/login`, `/v1/oauth/google` y `/v1/refresh`
-(10 req/min cada uno). `/v1/password-recovery` no tiene rate-limiting a nivel
-gateway; identify-service ya limita ese endpoint por email a nivel de
-aplicacion (ver su README, seccion de recuperacion de contraseña).
-
-`GET /v1/servers/:id/messages/search` (busqueda de mensajes de messaging) tiene
-120 req/min: el cliente busca mientras se escribe, con debounce, y el texto se
-busca con una regex que recorre los mensajes de los canales del servidor.
-
-`/v1/login` se subio de 10 a 60 req/min porque dejo de ser la unica defensa
-contra fuerza bruta: identify-service ahora bloquea intentos fallidos por
-`(email, ip)` (ver su README) -- a Kong solo le queda la proteccion gruesa
-contra volumen por IP, para la que 10/min bloqueaba de mas a cualquier grupo
-de usuarios legitimos compartiendo una IP (encontrado con una prueba de carga
-con k6, ver `infrastructure/load-test/README.md`).
-
-## Varias instancias de messaging
-`MESSAGING_UPSTREAM_URL` puede ser un nombre que resuelva a más de una IP: Kong reparte
-las peticiones (y las conexiones del socket) entre todas. En local se prueba con
-`infrastructure/docker-compose.multi.yml` (ver su README).
-
-`messaging-service` tiene `connect_timeout: 3000`. Con el valor por defecto (60 s), cuando
-una instancia muere Kong sigue mandándole una parte del tráfico hasta que expira su caché de
-DNS, y cada intento se cuelga un minuto antes de reintentar en la instancia viva. El ticket
-del socket dura 30 s, así que un cliente que se reconectaba en ese momento llegaba con el
-ticket vencido y no podía entrar. Con 3 s, reconectar tarda ~3 s en el peor caso (se probó
-matando una instancia con `docker kill`).
-
-En producción se mantiene **una sola instancia** de `messaging` (indicación de la cátedra:
-verificar que escala, pero no escalarlo), y `MESSAGING_UPSTREAM_URL` es una sola IP de Tailscale.
-Si algún día se suman instancias, hay que apuntarla a un nombre que resuelva a todas, o definir
-un `upstream` de Kong con un `target` por instancia.
-
-## Notifications
-`notifications-service` (`NOTIFICATIONS_UPSTREAM_URL`) expone dos rutas: `POST
-/v1/notifications/socket-tickets` (con `jwt`, igual que el ticket de messaging) y el
-WebSocket `/notifications/socket`, que va sin `jwt` porque el navegador no puede mandar
-headers: se autentica con el ticket de un solo uso. Si `NOTIFICATIONS_UPSTREAM_URL` no está
-en el `.env`, `docker-compose.yml` usa una URL de relleno para que Kong arranque igual y esas
-dos rutas respondan 502 hasta que se configure.
-
-Las notificaciones push (`/v1/notifications/push/...`: dispositivos, interruptor y clave pública
-VAPID) van por una sola ruta `notifications-push` con `jwt` y métodos `GET`, `PUT`, `POST` y
-`DELETE`. El token del dispositivo viaja en el cuerpo, nunca en la URL.
-
-## Billing
-`discordia-billing` (`BILLING_UPSTREAM_URL`) tiene dos services:
-
-- `billing-auth`: `/v1/billing/**` (`GET`, `POST`, `DELETE`) con `jwt`. Son los puntos, Premium y los boosts.
-- `billing-public`: solo `POST /webhooks/mercadopago`, **sin** `jwt` porque lo llama Mercado
-  Pago, con rate limiting de 300 req/min por IP. billing valida la firma `x-signature`, que
-  cubre `data.id` del query string y el header `x-request-id`, así que Kong no tiene que
-  modificar ni el query ni esos headers (por defecto no los toca; probado con un Kong local).
-
-Los simuladores de desarrollo (`/dev/billing/*`) y los health checks de billing **no** se
-publican. Si `BILLING_UPSTREAM_URL` no está en el `.env`, `docker-compose.yml` usa una URL de
-relleno para que Kong arranque igual y las rutas de billing respondan 502 hasta que se
-configure. En el panel de Mercado Pago, la URL del webhook es
-`https://<DOMAIN>/webhooks/mercadopago`.
-
-## Deploy a producción
-
-`docker-compose.yml` renderiza `kong/kong.yml.template` con `envsubst`
-(`kong-config`) y suma `caddy` para TLS automático delante de Kong.
-
-`identity`, `servers`, `messaging`, `notifications`, `metrics`, `admin` y `billing` corren en sus propias VMs (no en este
-compose) — `IDENTITY_UPSTREAM_URL`/`SERVERS_UPSTREAM_URL`/
-`MESSAGING_UPSTREAM_URL`/`NOTIFICATIONS_UPSTREAM_URL`/`METRICS_UPSTREAM_URL`/`ADMIN_UPSTREAM_URL`/`BILLING_UPSTREAM_URL` en `.env` apuntan a sus IPs de Tailscale. Ver
-`.env.example` para la lista completa.
-
-Metrics se publica mediante rutas JWT explícitas: las consultas (`GET
-/v1/status`, `GET /v1/health/services`, `GET /v1/metrics/global` y las métricas de servidor) están
-separadas de las mutaciones de incidentes (`POST /v1/metrics/incidents` y
-`POST /v1/metrics/incidents/:id/resolve`). Los health checks `/livez` y
-`/readyz` de metrics no se exponen por Kong.
-
-**Deploy automático**: un push a `main` (después de que pase `validate`)
-dispara el job `deploy` en `.github/workflows/ci.yml`, que por SSH hace
-`git pull` + `docker compose up -d --force-recreate kong-config gateway
-caddy` en la VM de Oracle (usa el `.env` que ya está en la VM, no lo toca).
-Necesita estos secrets en **Settings → Secrets and variables → Actions**:
-
-| Secret | Valor |
+| Qué querés hacer | Comando |
 |---|---|
-| `ORACLE_HOST` | IP pública de la VM |
-| `ORACLE_USER` | usuario SSH (ej. `ubuntu`) |
-| `ORACLE_SSH_KEY` | clave privada SSH de despliegue |
+| Levantar el gateway | `docker compose up` |
+| Levantar en segundo plano | `docker compose up -d` |
+| Levantar también Caddy (HTTPS) | `docker compose --profile https up -d` |
+| Ver los logs de Kong | `docker compose logs -f gateway` |
+| Ver qué está corriendo | `docker compose ps` |
+| Aplicar un cambio del template | `docker compose up -d --force-recreate kong-config gateway` |
+| Bajar todo | `docker compose down` |
 
-**Primera vez en la VM** (manual, una sola vez):
-```bash
-git clone -b main https://github.com/discordia-grupo01/gateway.git
-cd gateway
+El puerto de administración de Kong (8001) escucha solo dentro del contenedor y no se publica. No hay que exponerlo en producción.
 
-cp .env.example .env
-nano .env   # completar JWT_SECRET, DOMAIN, IDENTITY/SERVERS/MESSAGING/ADMIN_UPSTREAM_URL
-docker compose up -d
-```
+## Tests
+
+Este repositorio no tiene tests propios. El CI valida el template en cada pull request: reemplaza las variables, lo renderiza y lo verifica con `kong config parse`, así que una ruta mal escrita o una variable con un nombre que no termina en `_UPSTREAM_URL` hace fallar el pipeline.
+
+La prueba más rápida a mano es la de la sección [Cómo correr](#cómo-correr): sin token, una ruta protegida responde `401`.
+
+## Más documentación
+
+- [`kong/kong.yml.template`](kong/kong.yml.template): toda la configuración del gateway, con sus rutas, plugins y topes de velocidad.
