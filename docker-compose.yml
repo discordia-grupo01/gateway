@@ -31,6 +31,10 @@ services:
       KONG_DECLARATIVE_CONFIG: /kong/kong.yml
       KONG_PROXY_LISTEN: "0.0.0.0:8000"
       KONG_ADMIN_LISTEN: "127.0.0.1:8001"
+      # Los errores del nucleo de Kong (404 sin ruta, 502/503/504) salen siempre
+      # en JSON, nunca en texto plano ni HTML; el plugin post-function los lleva
+      # al formato unificado.
+      KONG_ERROR_DEFAULT_TYPE: application/json
     extra_hosts:
       - "host.docker.internal:host-gateway"
     # Kong toma worker_connections del limite de archivos abiertos (1024 por

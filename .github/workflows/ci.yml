@@ -28,8 +28,16 @@ jobs:
           fi
           docker run --rm -e KONG_DATABASE=off -v "$RUNNER_TEMP/kong.yml:/kong.yml:ro" kong:3.6 kong config parse /kong.yml
 
-  deploy:
+  smoke-error-format:
     needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Smoke test del formato de error
+        run: bash scripts/smoke-error-format.sh
+
+  deploy:
+    needs: [validate, smoke-error-format]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
