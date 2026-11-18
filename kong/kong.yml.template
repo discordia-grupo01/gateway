@@ -557,6 +557,76 @@ services:
         config:
           claims_to_verify: ["exp"]
 
+# Formato de error unificado (RF7). Plugin global que reescribe al sobre
+# {"error":{"code","message","details"}} SOLO las respuestas de error que
+# genera Kong (jwt, rate-limiting, sin ruta, 502/503/504). Lo que responde un
+# servicio (get_source() == "service") pasa intacto, sin buffering.
+# Ojo: este archivo pasa por envsubst, asi que el Lua no puede usar el caracter
+# de dolar.
+plugins:
+  - name: post-function
+    config:
+      header_filter:
+        - |
+          local source = kong.response.get_source()
+          local status = kong.response.get_status()
+          if source == "service" or status < 400 or ngx.req.get_method() == "HEAD" then
+            return
+          end
+
+          local errors = {
+            [400] = { "BAD_REQUEST", "El pedido es inválido." },
+            [401] = { "UNAUTHORIZED", "Falta el token de acceso o no es válido." },
+            [403] = { "FORBIDDEN", "No tenés permiso para realizar esta acción." },
+            [404] = { "NOT_FOUND", "La ruta no existe." },
+            [405] = { "METHOD_NOT_ALLOWED", "El método no está permitido para esta ruta." },
+            [408] = { "REQUEST_TIMEOUT", "El pedido tardó demasiado en llegar." },
+            [413] = { "PAYLOAD_TOO_LARGE", "El pedido es demasiado grande." },
+            [414] = { "URI_TOO_LONG", "La dirección del pedido es demasiado larga." },
+            [415] = { "UNSUPPORTED_MEDIA_TYPE", "El tipo de contenido no está soportado." },
+            [429] = { "RATE_LIMITED", "Hiciste demasiados pedidos. Probá de nuevo en unos instantes." },
+            [431] = { "HEADERS_TOO_LARGE", "Los encabezados del pedido son demasiado grandes." },
+            [500] = { "INTERNAL_ERROR", "Ocurrió un error inesperado." },
+            [502] = { "BAD_GATEWAY", "El servicio respondió de forma inválida." },
+            [503] = { "SERVICE_UNAVAILABLE", "El servicio no está disponible por el momento." },
+            [504] = { "GATEWAY_TIMEOUT", "El servicio tardó demasiado en responder." },
+          }
+          local entry = errors[status]
+          if not entry then
+            if status >= 500 then
+              entry = errors[500]
+            else
+              entry = errors[400]
+            end
+          end
+
+          local details = "{}"
+          if status == 429 then
+            local retry_after = tonumber(kong.response.get_header("Retry-After"))
+            if retry_after then
+              details = '{"retry_after_seconds":' .. string.format("%d", retry_after) .. "}"
+            end
+          end
+
+          kong.ctx.plugin.error_body = '{"error":{"code":"' .. entry[1]
+            .. '","message":"' .. entry[2]
+            .. '","details":' .. details .. "}}"
+          kong.response.clear_header("Content-Length")
+          kong.response.set_header("Content-Type", "application/json; charset=utf-8")
+      body_filter:
+        - |
+          local body = kong.ctx.plugin.error_body
+          if not body then
+            return
+          end
+          -- Los errores de Kong son chicos: se descartan los trozos y se emite
+          -- el sobre completo en el ultimo.
+          if ngx.arg[2] then
+            ngx.arg[1] = body
+          else
+            ngx.arg[1] = nil
+          end
+
 consumers:
   - username: discordia-users
     jwt_secrets:
