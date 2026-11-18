@@ -9,6 +9,7 @@ API gateway de Discordia, hecho con Kong.
 - [Cómo correr](#cómo-correr)
 - [Variables de entorno](#variables-de-entorno)
 - [Comandos Docker](#comandos-docker)
+- [Formato de error](#formato-de-error)
 - [Tests](#tests)
 - [Más documentación](#más-documentación)
 
@@ -17,7 +18,7 @@ API gateway de Discordia, hecho con Kong.
 El gateway es el único punto de entrada a Discordia: los clientes (la web, la app y el backoffice) solo hablan con él, y él reparte cada pedido al servicio que corresponde. Hace tres cosas:
 
 - **Enruta:** cada ruta (`/v1/login`, `/v1/servers`, `/v1/admin/...`) va a su servicio.
-- **Valida el JWT:** rechaza con `401` los pedidos sin token o con el token vencido. Las rutas públicas (registro, login, recupero de contraseña, unirse por invitación, los health checks y el webhook de Mercado Pago) no lo exigen.
+- **Valida el JWT:** rechaza con `401` los pedidos sin token, con firma inválida o con el token vencido (firma HS256 con `JWT_SECRET`; Kong no usa clave RSA). Las rutas públicas (registro, login, recupero de contraseña, unirse por invitación, los health checks y el webhook de Mercado Pago) no lo exigen.
 - **Limita la velocidad:** pone un tope de pedidos por minuto y por IP en el login, el refresh y la búsqueda de mensajes.
 
 Kong funciona en modo DB-less: toda su configuración está en un solo archivo, [`kong/kong.yml.template`](kong/kong.yml.template), y no necesita su propia base de datos. Al arrancar, un contenedor reemplaza las variables de ese archivo con `envsubst` y Kong carga el resultado.
@@ -121,9 +122,35 @@ Todos desde la raíz del repositorio.
 
 El puerto de administración de Kong (8001) escucha solo dentro del contenedor y no se publica. No hay que exponerlo en producción.
 
+
+## Formato de error
+
+Todo error que genera el propio Kong sale con el sobre común de la API, `Content-Type: application/json`:
+
+```json
+{ "error": { "code": "UNAUTHORIZED", "message": "Falta el token de acceso o no es válido.", "details": {} } }
+```
+
+La regla: un plugin global `post-function` (en `kong/kong.yml.template`) reescribe la respuesta **solo** cuando el error nace en Kong (`kong.response.get_source() ~= "service"`) y el status es 400 o más. Lo que responde un servicio pasa intacto, sin buffering, aunque sea un cuerpo grande o un stream. Además, `KONG_ERROR_DEFAULT_TYPE=application/json` (en `docker-compose.yml`) hace que los errores del núcleo de Kong nunca salgan en texto plano ni HTML, aunque el cliente mande `Accept: text/html`. Los preflight CORS (204) y los `HEAD` no se tocan.
+
+| Situación | Status | `code` | `details` |
+|---|---|---|---|
+| Plugin `jwt` (sin token, token inválido o vencido) | 401 | `UNAUTHORIZED` | `{}` |
+| Plugin `rate-limiting` | 429 | `RATE_LIMITED` | `{"retry_after_seconds": n}` si hay `Retry-After`; se conservan `Retry-After` y `X-RateLimit-*` |
+| Ninguna ruta coincide | 404 | `NOT_FOUND` | `{}` |
+| El servicio respondió mal / conexión rechazada | 502 | `BAD_GATEWAY` | `{}` |
+| Sin servicio disponible en el balanceador | 503 | `SERVICE_UNAVAILABLE` | `{}` |
+| El servicio tardó demasiado | 504 | `GATEWAY_TIMEOUT` | `{}` |
+| Otros 4xx del núcleo | 400, 403, 405, 408, 413, 414, 415, 431 | `BAD_REQUEST`, `FORBIDDEN`, `METHOD_NOT_ALLOWED`, `REQUEST_TIMEOUT`, `PAYLOAD_TOO_LARGE`, `URI_TOO_LONG`, `UNSUPPORTED_MEDIA_TYPE`, `HEADERS_TOO_LARGE` | `{}` |
+| Otros 5xx del núcleo | 5xx | `INTERNAL_ERROR` | `{}` |
+
+El Lua del plugin no puede usar el carácter de dólar: el template pasa por `envsubst`.
+
 ## Tests
 
-Este repositorio no tiene tests propios. El CI valida el template en cada pull request: reemplaza las variables, lo renderiza y lo verifica con `kong config parse`, así que una ruta mal escrita o una variable con un nombre que no termina en `_UPSTREAM_URL` hace fallar el pipeline.
+Este repositorio no tiene tests unitarios. El CI valida el template en cada pull request: reemplaza las variables, lo renderiza y lo verifica con `kong config parse`, así que una ruta mal escrita o una variable con un nombre que no termina en `_UPSTREAM_URL` hace fallar el pipeline.
+
+Además, `scripts/smoke-error-format.sh` (corre en el CI, requiere Docker y curl) levanta Kong con la config real y un upstream de mentira, y verifica el sobre de error en 401, 404, 502 y 429, y que el error de un servicio pase intacto. Se corre con `bash scripts/smoke-error-format.sh`.
 
 La prueba más rápida a mano es la de la sección [Cómo correr](#cómo-correr): sin token, una ruta protegida responde `401`.
 
