@@ -30,14 +30,14 @@ jobs:
           fi
           docker run --rm -e KONG_DATABASE=off -v "$RUNNER_TEMP/kong.yml:/kong.yml:ro" kong:3.6 kong config parse /kong.yml
 
-      - name: Validar el render con y sin OpenTelemetry
+      - name: Validar el render con y sin observabilidad
         run: |
           for escenario in sin con; do
             salida="$RUNNER_TEMP/render-$escenario"
             mkdir -p "$salida"
             otel=()
             if [ "$escenario" = "con" ]; then
-              otel=(-e OTEL_EXPORTER_OTLP_ENDPOINT=https://otlp.invalid -e OTEL_EXPORTER_OTLP_HEADERS=api-key=ci-key -e OTEL_SERVICE_NAME=gateway-ci)
+              otel=(-e OTEL_EXPORTER_OTLP_ENDPOINT=https://otlp.invalid -e OTEL_EXPORTER_OTLP_HEADERS=api-key=ci-key -e OTEL_SERVICE_NAME=gateway-ci -e LOG_SHIP_URL=https://logs.invalid/log/v1)
             fi
             docker run --rm \
               -v "$PWD/kong:/template:ro" -v "$salida:/rendered" \
@@ -59,8 +59,12 @@ jobs:
               echo "::error::Con endpoint y api-key el plugin opentelemetry tiene que estar en el render."
               exit 1
             fi
-            if [ "$escenario" = "sin" ] && grep -q 'name: opentelemetry' "$salida/kong.yml"; then
-              echo "::error::Sin endpoint ni api-key el plugin opentelemetry no tiene que estar en el render."
+            if [ "$escenario" = "con" ] && ! grep -q 'name: http-log' "$salida/kong.yml"; then
+              echo "::error::Con LOG_SHIP_URL y api-key el plugin http-log tiene que estar en el render."
+              exit 1
+            fi
+            if [ "$escenario" = "sin" ] && grep -qE 'name: (opentelemetry|http-log)' "$salida/kong.yml"; then
+              echo "::error::Sin variables de New Relic no tiene que haber plugins de observabilidad en el render."
               exit 1
             fi
             docker run --rm -e KONG_DATABASE=off -v "$salida/kong.yml:/kong.yml:ro" kong:3.6 kong config parse /kong.yml

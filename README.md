@@ -108,22 +108,31 @@ Se leen del entorno o de un archivo `.env`. El archivo [`.env.example`](.env.exa
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | vacío | Endpoint OTLP al que Kong exporta sus trazas, por ejemplo `https://otlp.nr-data.net` para New Relic. Vacío = no exporta nada. |
 | `OTEL_EXPORTER_OTLP_HEADERS` | vacío | Tiene que incluir `api-key=<clave de licencia de ingesta>`. Es un secreto. |
 | `OTEL_SERVICE_NAME` | `kong` | Nombre del servicio en New Relic. En producción, `gateway-prod`. |
+| `LOG_SHIP_URL` | vacío | Dónde Kong manda sus logs, por ejemplo `https://log-api.newrelic.com/log/v1`. Vacío = no los envía. |
+| `LOG_SHIP_API_KEY` | vacío | Clave para los logs. Si está vacía se usa la api-key de `OTEL_EXPORTER_OTLP_HEADERS`. Es un secreto. |
 
 ## Observabilidad
 
-Kong abre la traza de cada pedido y exporta sus spans por OpenTelemetry, así que el gateway aparece en New Relic como un servicio más y la traza sigue hasta el servicio que atiende el pedido (le inyecta el encabezado `traceparent`). Está apagado por defecto: se activa cargando `OTEL_EXPORTER_OTLP_ENDPOINT` y `OTEL_EXPORTER_OTLP_HEADERS` (ver la tabla de arriba) y recreando los contenedores.
+Kong manda a New Relic sus **trazas** y sus **logs**, así el gateway aparece como un servicio más (`OTEL_SERVICE_NAME`, en producción `gateway-prod`). Los dos están apagados por defecto y se activan por separado cargando las variables de la tabla de arriba y recreando los contenedores. `kong/render.sh` arma `kong.yml` a partir del template e inserta los plugins que correspondan dentro de la lista `plugins:` (marcador `${OTEL_PLUGINS}`): si faltan las variables, Kong arranca igual y no exporta nada.
 
-- **Qué exporta:** método, ruta (el patrón de la ruta de Kong, no la dirección completa), host, código de respuesta y duración.
-- **Qué no exporta:** la query (tickets de WebSocket, emails), la dirección completa ni la IP del cliente. Las borra un plugin `pre-function` en la fase `rewrite`. Verificado con un Kong real y un colector local, con una corrida de control sin el filtro que sí las exportaba.
-- **Cómo funciona:** `kong/render.sh` arma `kong.yml` a partir del template y, solo si hay endpoint y api-key, agrega el bloque de `kong/opentelemetry.yml.template` dentro de la lista `plugins:`. Kong no confía en el `traceparent` que llega de afuera: siempre abre una traza propia.
-- **Variables que se activan en el contenedor:** `KONG_TRACING_INSTRUMENTATIONS=request` (ya está en `docker-compose.yml`).
+**Trazas** (`OTEL_EXPORTER_OTLP_ENDPOINT` y `OTEL_EXPORTER_OTLP_HEADERS`)
+- Kong abre la traza de cada pedido, le pasa el `traceparent` al servicio que lo atiende y exporta sus spans por OpenTelemetry. Nunca confía en el `traceparent` que llega de afuera.
+- Exporta método, ruta (el patrón de la ruta de Kong), host, código de respuesta y duración. No exporta la dirección completa, la query (tickets de WebSocket, emails) ni la IP del cliente: las borra un plugin `pre-function` en la fase `rewrite`.
+
+**Logs** (`LOG_SHIP_URL`)
+- Un log por pedido, enviado en lotes con el plugin `http-log`. Se arma por lista de permitidos: `message` (por ejemplo `GET notifications-health 503`), `level` (`error` desde el 500), `timestamp`, método, tamaños, código de respuesta, nombre de la ruta y del servicio de Kong, latencias, `entity.name` (el nombre del servicio en New Relic) y `trace.id`, que lo enlaza con la traza del mismo pedido.
+- No lleva la dirección ni la query, ni encabezados (el token), ni la IP del cliente, ni las IPs de los servicios.
+- Cada pedido es una línea: el volumen cuenta para los 100 GB al mes de New Relic. Mirar cuánto ocupa después de un día de uso real.
+
+Los dos filtros se verificaron con un Kong real y un colector local: con un pedido que llevaba un ticket, un email y un token en la query y en el encabezado, ninguno apareció en lo exportado, y una corrida de control sin el filtro de las trazas sí los exportaba.
 
 Para ver el gateway en New Relic, buscá la entidad con el nombre de `OTEL_SERVICE_NAME`. Consultas útiles (NRQL):
 
 ```
 FROM Span SELECT count(*) WHERE service.name = 'gateway-prod' FACET http.status_code SINCE 1 hour ago
 FROM Span SELECT percentile(duration.ms, 50, 95, 99) WHERE service.name = 'gateway-prod' SINCE 1 hour ago TIMESERIES
-FROM Span SELECT percentage(count(*), WHERE numeric(http.status_code) >= 500) WHERE service.name = 'gateway-prod' SINCE 1 hour ago TIMESERIES
+FROM Log SELECT count(*) WHERE entity.name = 'gateway-prod' FACET response.status SINCE 1 hour ago
+FROM Log SELECT percentage(count(*), WHERE level = 'error') WHERE entity.name = 'gateway-prod' SINCE 1 hour ago TIMESERIES
 ```
 
 ## Comandos Docker

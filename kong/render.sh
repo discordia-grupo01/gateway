@@ -40,6 +40,38 @@ if [ -n "$endpoint" ] && [ -n "$api_key" ]; then
 else
   echo "OpenTelemetry apagado: sin OTEL_EXPORTER_OTLP_ENDPOINT y una api-key en OTEL_EXPORTER_OTLP_HEADERS"
 fi
+
+log_url="${LOG_SHIP_URL:-}"
+log_key="$(printf '%s' "${LOG_SHIP_API_KEY:-}" | tr -d '[:space:]')"
+if [ -z "$log_key" ]; then
+  log_key="$api_key"
+fi
+
+case "$log_url" in
+  "") ;;
+  http://*|https://*) ;;
+  *)
+    echo "LOG_SHIP_URL tiene que empezar con http:// o https://: Kong arranca sin envio de logs" >&2
+    log_url=""
+    ;;
+esac
+
+case "$log_key" in
+  *[!A-Za-z0-9_.-]*)
+    echo "La api-key de los logs tiene caracteres no validos: Kong arranca sin envio de logs" >&2
+    log_key=""
+    ;;
+esac
+
+if [ -n "$log_url" ] && [ -n "$log_key" ]; then
+  export LOG_SHIP_URL="$log_url"
+  export LOG_API_KEY="$log_key"
+  export OTEL_SERVICE_NAME="$service_name"
+  OTEL_PLUGINS="$(printf '%s\n%s' "$OTEL_PLUGINS" "$(envsubst < /template/http-log.yml.template)")"
+  echo "Envio de logs activado: Kong manda sus logs a ${log_url} como '${service_name}'"
+else
+  echo "Envio de logs apagado: sin LOG_SHIP_URL y una api-key"
+fi
 export OTEL_PLUGINS
 
 envsubst < /template/kong.yml.template > /rendered/kong.yml
