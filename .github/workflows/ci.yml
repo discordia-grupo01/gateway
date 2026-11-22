@@ -22,12 +22,53 @@ jobs:
             -e 's#\$\{[A-Z_]+_UPSTREAM_URL\}#http://upstream.invalid:8080#g' \
             -e 's#\$\{JWT_SECRET\}#ci-secret#g' \
             -e 's#\$\{WEB_ORIGIN\}#https://web.invalid#g' \
+            -e 's#\$\{OTEL_PLUGINS\}##g' \
             kong/kong.yml.template > "$RUNNER_TEMP/kong.yml"
           if grep -n '\${' "$RUNNER_TEMP/kong.yml"; then
             echo "::error::El template tiene una variable sin valor de prueba en el CI (arriba). Si es un upstream, que termine en _UPSTREAM_URL."
             exit 1
           fi
           docker run --rm -e KONG_DATABASE=off -v "$RUNNER_TEMP/kong.yml:/kong.yml:ro" kong:3.6 kong config parse /kong.yml
+
+      - name: Validar el render con y sin observabilidad
+        run: |
+          for escenario in sin con; do
+            salida="$RUNNER_TEMP/render-$escenario"
+            mkdir -p "$salida"
+            otel=()
+            if [ "$escenario" = "con" ]; then
+              otel=(-e OTEL_EXPORTER_OTLP_ENDPOINT=https://otlp.invalid -e OTEL_EXPORTER_OTLP_HEADERS=api-key=ci-key -e OTEL_SERVICE_NAME=gateway-ci -e LOG_SHIP_URL=https://logs.invalid/log/v1)
+            fi
+            docker run --rm \
+              -v "$PWD/kong:/template:ro" -v "$salida:/rendered" \
+              -e JWT_SECRET=ci-secret -e WEB_ORIGIN=https://web.invalid \
+              -e IDENTITY_UPSTREAM_URL=http://upstream.invalid:8080 \
+              -e SERVERS_UPSTREAM_URL=http://upstream.invalid:8080 \
+              -e MESSAGING_UPSTREAM_URL=http://upstream.invalid:8080 \
+              -e NOTIFICATIONS_UPSTREAM_URL=http://upstream.invalid:8080 \
+              -e VOICE_UPSTREAM_URL=http://upstream.invalid:8080 \
+              -e ADMIN_UPSTREAM_URL=http://upstream.invalid:8080 \
+              -e METRICS_UPSTREAM_URL=http://upstream.invalid:8080 \
+              -e BILLING_UPSTREAM_URL=http://upstream.invalid:8080 \
+              "${otel[@]}" alpine:3.19 sh /template/render.sh
+            if grep -n '\${' "$salida/kong.yml"; then
+              echo "::error::El render ($escenario OpenTelemetry) dejo una variable sin reemplazar."
+              exit 1
+            fi
+            if [ "$escenario" = "con" ] && ! grep -q 'name: opentelemetry' "$salida/kong.yml"; then
+              echo "::error::Con endpoint y api-key el plugin opentelemetry tiene que estar en el render."
+              exit 1
+            fi
+            if [ "$escenario" = "con" ] && ! grep -q 'name: http-log' "$salida/kong.yml"; then
+              echo "::error::Con LOG_SHIP_URL y api-key el plugin http-log tiene que estar en el render."
+              exit 1
+            fi
+            if [ "$escenario" = "sin" ] && grep -qE 'name: (opentelemetry|http-log)' "$salida/kong.yml"; then
+              echo "::error::Sin variables de New Relic no tiene que haber plugins de observabilidad en el render."
+              exit 1
+            fi
+            docker run --rm -e KONG_DATABASE=off -v "$salida/kong.yml:/kong.yml:ro" kong:3.6 kong config parse /kong.yml
+          done
 
   smoke-error-format:
     needs: validate
