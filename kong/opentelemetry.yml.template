@@ -1,0 +1,20 @@
+  - name: opentelemetry
+    config:
+      endpoint: ${OTEL_TRACES_URL}
+      headers:
+        api-key: "${OTEL_API_KEY}"
+      resource_attributes:
+        service.name: ${OTEL_SERVICE_NAME}
+      header_type: ignore
+      sampling_rate: 1
+  - name: pre-function
+    config:
+      rewrite:
+        - |-
+          local spans = ngx.ctx.KONG_SPANS
+          local root = spans and spans[1]
+          if root then
+            root:set_attribute("http.url", nil)
+            root:set_attribute("http.client_ip", nil)
+            root:set_attribute("net.peer.ip", nil)
+          end

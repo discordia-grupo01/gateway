@@ -105,6 +105,26 @@ Se leen del entorno o de un archivo `.env`. El archivo [`.env.example`](.env.exa
 | `WEB_ORIGIN` | `http://localhost:3000` | Único origen que puede subir adjuntos directo desde el navegador (CORS). |
 | `GATEWAY_BIND_IP` | `127.0.0.1` | IP en la que se publica el puerto 8000. |
 | `DOMAIN` | `localhost` | Dominio público. Solo lo usa Caddy, con el perfil `https`. |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | vacío | Endpoint OTLP al que Kong exporta sus trazas, por ejemplo `https://otlp.nr-data.net` para New Relic. Vacío = no exporta nada. |
+| `OTEL_EXPORTER_OTLP_HEADERS` | vacío | Tiene que incluir `api-key=<clave de licencia de ingesta>`. Es un secreto. |
+| `OTEL_SERVICE_NAME` | `kong` | Nombre del servicio en New Relic. En producción, `gateway-prod`. |
+
+## Observabilidad
+
+Kong abre la traza de cada pedido y exporta sus spans por OpenTelemetry, así que el gateway aparece en New Relic como un servicio más y la traza sigue hasta el servicio que atiende el pedido (le inyecta el encabezado `traceparent`). Está apagado por defecto: se activa cargando `OTEL_EXPORTER_OTLP_ENDPOINT` y `OTEL_EXPORTER_OTLP_HEADERS` (ver la tabla de arriba) y recreando los contenedores.
+
+- **Qué exporta:** método, ruta (el patrón de la ruta de Kong, no la dirección completa), host, código de respuesta y duración.
+- **Qué no exporta:** la query (tickets de WebSocket, emails), la dirección completa ni la IP del cliente. Las borra un plugin `pre-function` en la fase `rewrite`. Verificado con un Kong real y un colector local, con una corrida de control sin el filtro que sí las exportaba.
+- **Cómo funciona:** `kong/render.sh` arma `kong.yml` a partir del template y, solo si hay endpoint y api-key, agrega el bloque de `kong/opentelemetry.yml.template` dentro de la lista `plugins:`. Kong no confía en el `traceparent` que llega de afuera: siempre abre una traza propia.
+- **Variables que se activan en el contenedor:** `KONG_TRACING_INSTRUMENTATIONS=request` (ya está en `docker-compose.yml`).
+
+Para ver el gateway en New Relic, buscá la entidad con el nombre de `OTEL_SERVICE_NAME`. Consultas útiles (NRQL):
+
+```
+FROM Span SELECT count(*) WHERE service.name = 'gateway-prod' FACET http.status_code SINCE 1 hour ago
+FROM Span SELECT percentile(duration.ms, 50, 95, 99) WHERE service.name = 'gateway-prod' SINCE 1 hour ago TIMESERIES
+FROM Span SELECT percentage(count(*), WHERE numeric(http.status_code) >= 500) WHERE service.name = 'gateway-prod' SINCE 1 hour ago TIMESERIES
+```
 
 ## Comandos Docker
 

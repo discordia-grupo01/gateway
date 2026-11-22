@@ -636,6 +636,10 @@ plugins:
             ngx.arg[1] = nil
           end
 
+# Plugins de OpenTelemetry (trazas hacia New Relic). Los agrega render.sh solo
+# si hay endpoint y api-key; si no, esta linea queda vacia.
+${OTEL_PLUGINS}
+
 consumers:
   - username: discordia-users
     jwt_secrets:

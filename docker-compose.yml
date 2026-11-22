@@ -18,10 +18,15 @@ services:
       # Unico origen que puede subir adjuntos directo desde el navegador. Sin
       # configurar, Kong arranca igual y solo falla esa subida desde la web.
       WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}
+      # Trazas hacia New Relic. Sin endpoint y api-key, Kong arranca igual y no
+      # exporta nada (ver kong/render.sh).
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      OTEL_EXPORTER_OTLP_HEADERS: ${OTEL_EXPORTER_OTLP_HEADERS:-}
+      OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-kong}
     volumes:
-      - ./kong/kong.yml.template:/template/kong.yml.template:ro
+      - ./kong:/template:ro
       - kong_rendered:/rendered
-    command: sh -c "apk add --no-cache gettext >/dev/null && envsubst < /template/kong.yml.template > /rendered/kong.yml"
+    command: sh /template/render.sh
 
   gateway:
     image: kong:3.6
@@ -35,6 +40,7 @@ services:
       # en JSON, nunca en texto plano ni HTML; el plugin post-function los lleva
       # al formato unificado.
       KONG_ERROR_DEFAULT_TYPE: application/json
+      KONG_TRACING_INSTRUMENTATIONS: request
     extra_hosts:
       - "host.docker.internal:host-gateway"
     # Kong toma worker_connections del limite de archivos abiertos (1024 por
