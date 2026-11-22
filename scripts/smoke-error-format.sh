@@ -45,6 +45,7 @@ sed -E \
   -e 's#\$\{[A-Z_]+_UPSTREAM_URL\}#http://'"$UP"':8080#g' \
   -e 's#\$\{JWT_SECRET\}#smoke-secret#g' \
   -e 's#\$\{WEB_ORIGIN\}#https://web.invalid#g' \
+  -e 's#\$\{OTEL_PLUGINS\}##g' \
   -e 's#minute: [0-9]+#minute: 1#g' \
   "$ROOT/kong/kong.yml.template" > "$WORK/kong.yml"
 if grep -n '\${' "$WORK/kong.yml"; then
