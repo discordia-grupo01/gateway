@@ -1,0 +1,60 @@
+  - name: http-log
+    config:
+      http_endpoint: ${LOG_SHIP_URL}
+      method: POST
+      content_type: application/json
+      headers:
+        Api-Key: "${LOG_API_KEY}"
+      timeout: 5000
+      keepalive: 60000
+      queue:
+        max_batch_size: 50
+        max_coalescing_delay: 5
+      custom_fields_by_lua:
+        message: |-
+          local route = kong.router.get_route()
+          return kong.request.get_method() .. " " .. (route and route.name or "sin-ruta") .. " " .. tostring(kong.response.get_status())
+        level: |-
+          if kong.response.get_status() >= 500 then
+            return "error"
+          end
+          return "info"
+        timestamp: |-
+          return math.floor(ngx.req.start_time() * 1000)
+        entity: |-
+          return { name = "${OTEL_SERVICE_NAME}", type = "SERVICE" }
+        trace: |-
+          local spans = ngx.ctx.KONG_SPANS
+          local root = spans and spans[1]
+          if not root or not root.trace_id then
+            return nil
+          end
+          return { id = (root.trace_id:gsub(".", function(c) return string.format("%02x", c:byte()) end)) }
+        request: |-
+          return { method = kong.request.get_method(), size = tonumber(ngx.var.request_length), id = ngx.var.request_id }
+        response: |-
+          return { status = kong.response.get_status(), size = tonumber(ngx.var.bytes_sent) }
+        route: |-
+          local route = kong.router.get_route()
+          return { name = route and route.name or "sin-ruta" }
+        kong_service: |-
+          local service = kong.router.get_service()
+          return { name = service and service.name or "sin-servicio" }
+        trace_id: |-
+          return nil
+        service: |-
+          return nil
+        client_ip: |-
+          return nil
+        upstream_uri: |-
+          return nil
+        tries: |-
+          return nil
+        consumer: |-
+          return nil
+        authenticated_entity: |-
+          return nil
+        workspace: |-
+          return nil
+        workspace_name: |-
+          return nil
