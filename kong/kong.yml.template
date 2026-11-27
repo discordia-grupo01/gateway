@@ -154,6 +154,11 @@ services:
           - "~/v1/servers/[^/]+/banner$"
         methods: ["GET"]
         strip_path: false
+      - name: servers-emoji-image
+        paths:
+          - "~/v1/servers/[^/]+/emojis/[^/]+/image$"
+        methods: ["GET"]
+        strip_path: false
 
   - name: servers-service
     url: ${SERVERS_UPSTREAM_URL}
